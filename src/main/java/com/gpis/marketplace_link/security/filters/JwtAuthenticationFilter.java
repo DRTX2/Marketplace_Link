@@ -2,6 +2,7 @@ package com.gpis.marketplace_link.security.filters;
 
 import com.gpis.marketplace_link.entities.User;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -34,18 +35,18 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
             throws AuthenticationException {
         User user = null;
-        String email = null;
+        String userName = null;
         String password = null;
 
         try {
             user = new ObjectMapper().readValue(request.getInputStream(), User.class);
-            email = user.getEmail();
+            userName = user.getEmail();
             password = user.getPassword();
         } catch (IOException e) {
-            throw new RuntimeException("Somenting went wrong while was trying to read a value.");
+            throw new AuthenticationServiceException("Failed to parse authentication request body.", e);
         }
 
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email,
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userName,
                 password);
         return authenticationManager.authenticate(authenticationToken);
     }
