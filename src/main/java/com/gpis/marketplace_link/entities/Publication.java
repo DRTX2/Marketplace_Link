@@ -3,6 +3,8 @@ package com.gpis.marketplace_link.entities;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SoftDelete;
+import org.hibernate.annotations.SoftDeleteType;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
 
@@ -13,6 +15,7 @@ import java.util.List;
 @Entity
 @Table(name = "publications")
 @Data
+
 public class Publication {
 
     @Id

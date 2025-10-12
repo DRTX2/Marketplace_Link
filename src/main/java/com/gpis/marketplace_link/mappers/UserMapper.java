@@ -14,23 +14,19 @@ import org.mapstruct.*;
 )
 public interface UserMapper {
 
-    @Mappings({
-            @Mapping(target = "roles", source = "roles", qualifiedByName = "namesToRoles"),
-            @Mapping(target = "gender", source = "gender", qualifiedByName = "stringToGender"),
-            @Mapping(target = "accountStatus", source = "accountStatus", qualifiedByName = "stringToAccountStatus"),
-            @Mapping(target = "createdAt", ignore = true),
-            @Mapping(target = "updatedAt", ignore = true),
-            @Mapping(target = "id", ignore = true),
-            @Mapping(target = "deleted", ignore = true)
-    })
+    @Mapping(target = "roles", source = "roles", qualifiedByName = "namesToRoles")
+    @Mapping(target = "gender", source = "gender", qualifiedByName = "stringToGender")
+    @Mapping(target = "accountStatus", source = "accountStatus", qualifiedByName = "stringToAccountStatus")
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "publications", ignore = true) //De momento
     User toDomain(UserRequest request);
-
-    @Mappings({
-            @Mapping(target = "roles", source = "roles", qualifiedByName = "rolesToResponses"),
-            @Mapping(target = "gender", source = "gender", qualifiedByName = "genderToString"),
-            @Mapping(target = "accountStatus", source = "accountStatus", qualifiedByName = "accountStatusToString"),
-            @Mapping(target = "fullName", expression = "java(user.getFullName())")
-    })
+    @Mapping(target = "roles", source = "roles", qualifiedByName = "rolesToResponses")
+    @Mapping(target = "gender", source = "gender", qualifiedByName = "genderToString")
+    @Mapping(target = "accountStatus", source = "accountStatus", qualifiedByName = "accountStatusToString")
+    @Mapping(target = "fullName", expression = "java(user.getFullName())")
     UserResponse toResponse(User user);
 
     @Named("stringToGender")
