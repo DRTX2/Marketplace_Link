@@ -24,8 +24,8 @@ spring:
     show-sql: true
     hibernate:
       ddl-auto: validate
-    # Para soporte espacial con PostGIS , el normal no soporta
-    database-platform: org.hibernate.spatial.dialect.postgis.PostgisDialect
+    # Para soporte espacial con PostGIS , el normal no soporta tipos espaciales
+    database-platform: org.hibernate.spatial.dialect.postgis.PostgisPG95Dialect
     properties:
       hibernate:
         format_sql: true
