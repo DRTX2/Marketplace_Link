@@ -155,3 +155,78 @@ CREATE TABLE IF NOT EXISTS publication_images (
     REFERENCES publications(id)
     ON DELETE CASCADE
     );
+
+
+
+-- ======================
+-- Insercion de datos
+-- ======================
+
+
+
+-- ======================
+-- Inserción de usuarios de prueba
+-- ======================
+INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender)
+VALUES
+    ('0101010101', 'admin_user', 'password123', 'admin@example.com', '0999000001', 'Admin', 'User', 'M'),
+    ('0202020202', 'moderator_user', 'password123', 'moderator@example.com', '0999000002', 'Moderator', 'User', 'F'),
+    ('0303030303', 'seller_one', 'password123', 'seller1@example.com', '0999000003', 'Seller', 'One', 'M'),
+    ('0404040404', 'seller_two', 'password123', 'seller2@example.com', '0999000004', 'Seller', 'Two', 'F'),
+    ('0505050505', 'buyer_user', 'password123', 'buyer@example.com', '0999000005', 'Buyer', 'User', 'M')
+    ON CONFLICT (username) DO NOTHING;
+
+-- ======================
+-- Asignación de roles a usuarios
+-- ======================
+-- Suponiendo que los IDs de roles son 1=ROLE_ADMIN, 2=ROLE_MODERATOR, 3=ROLE_SELLER, 4=ROLE_BUYER
+INSERT INTO users_roles (user_id, role_id) VALUES
+                                               (1, 1), -- admin_user -> ROLE_ADMIN
+                                               (2, 2), -- moderator_user -> ROLE_MODERATOR
+                                               (3, 3), -- seller_one -> ROLE_SELLER
+                                               (4, 3), -- seller_two -> ROLE_SELLER
+                                               (5, 4)  -- buyer_user -> ROLE_BUYER
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+
+
+-- ======================
+-- Inserción de categorías iniciales
+-- ======================
+INSERT INTO categories (name) VALUES
+                                  ('Electrónica'),
+                                  ('Hogar'),
+                                  ('Ropa'),
+                                  ('Deportes'),
+                                  ('Belleza y Salud'),
+                                  ('Automotriz'),
+                                  ('Alimentos y Bebidas'),
+                                  ('Servicios Profesionales'),
+                                  ('Transporte'),
+                                  ('Educación')
+    ON CONFLICT (name) DO NOTHING;
+
+
+-- ======================
+-- Inserción de publicaciones
+-- ======================
+-- NOTA: Usando coordenadas ficticias
+INSERT INTO publications (code, type, name, description, price, availability, status, location, category_id, vendor_id, working_hours)
+VALUES
+    ('PRD001', 'PRODUCT', 'Smartphone X', 'Último modelo de smartphone con 128GB', 699.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4847, -0.1807), 4326), 1, 3, NULL),
+    ('PRD002', 'PRODUCT', 'Sofá 3 Plazas', 'Sofá moderno de tela gris', 499.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4850, -0.1810), 4326), 2, 3, NULL),
+    ('SRV001', 'SERVICE', 'Clases de Yoga', 'Instructor certificado ofrece clases de yoga a domicilio', 20.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4820, -0.1820), 4326), 4, 4, '08:00-12:00'),
+    ('PRD003', 'PRODUCT', 'Bicicleta Montaña', 'Bicicleta MTB 29 pulgadas', 350.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4860, -0.1830), 4326), 4, 3, NULL),
+    ('SRV002', 'SERVICE', 'Reparación de PC', 'Servicio técnico de computadoras y laptops', 30.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4870, -0.1840), 4326), 8, 4, '09:00-17:00')
+    ON CONFLICT (code) DO NOTHING;
+
+-- ======================
+-- Inserción de imágenes de ejemplo para publicaciones
+-- ======================
+INSERT INTO publication_images (publication_id, path) VALUES
+                                                          (1, 'images/smartphone1.jpg'),
+                                                          (1, 'images/smartphone2.jpg'),
+                                                          (2, 'images/sofa1.jpg'),
+                                                          (3, 'images/yoga1.jpg'),
+                                                          (4, 'images/bicicleta1.jpg'),
+                                                          (5, 'images/pc_repair1.jpg');
+
