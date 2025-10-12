@@ -2,10 +2,8 @@ package com.gpis.marketplace_link.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SoftDelete;
 import org.hibernate.annotations.SoftDeleteType;
-import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
@@ -46,12 +44,8 @@ public class Publication {
     @Column(name = "publication_date")
     private LocalDateTime publicationDate;
 
-    @Column(nullable = false)
-    @JdbcTypeCode(SqlTypes.GEOMETRY)
+    @Column(nullable = false, columnDefinition = "geography(Point, 4326)")
     private Point location;
-
-    @Column(name = "vendor_id")
-    private Long vendorId;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
@@ -64,6 +58,10 @@ public class Publication {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "vendor_id", nullable = false)
     private User vendor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
     @OneToMany(mappedBy = "publication", cascade = CascadeType.ALL)
     private List<PublicationImage> images;

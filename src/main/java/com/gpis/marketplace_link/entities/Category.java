@@ -1,4 +1,5 @@
 package com.gpis.marketplace_link.entities;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -18,6 +19,7 @@ public class Category {
     private String name;
 
      @OneToMany(mappedBy = "category")
+     @JsonIgnore
      private List<Publication> publications;
 
 }

@@ -12,7 +12,7 @@ public class PublicationImage {
     private Long id;
 
     @Column(nullable = false)
-    private String url;
+    private String path;
 
     @ManyToOne
     @JoinColumn(name = "publication_id")
