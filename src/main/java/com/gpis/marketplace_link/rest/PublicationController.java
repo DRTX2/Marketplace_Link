@@ -1,7 +1,6 @@
 package com.gpis.marketplace_link.rest;
 
 import com.gpis.marketplace_link.dto.publication.response.PublicationResponse;
-import com.gpis.marketplace_link.entities.Publication;
 import com.gpis.marketplace_link.services.PublicationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -42,9 +41,5 @@ public class PublicationController {
         );
 
         return ResponseEntity.ok(publications);
-
-
     }
-
-
 }

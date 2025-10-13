@@ -1,5 +1,7 @@
 package com.gpis.marketplace_link.entities;
 
+import com.gpis.marketplace_link.valueObjects.AccountStatus;
+import com.gpis.marketplace_link.valueObjects.PublicationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.SoftDelete;
@@ -38,8 +40,10 @@ public class Publication {
     @Column(nullable = false)
     private String availability;
 
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;
+    private PublicationStatus status;
 
     @Column(name = "publication_date")
     private LocalDateTime publicationDate;
@@ -67,7 +71,7 @@ public class Publication {
     private List<PublicationImage> images;
 
     public void setUnderReview() {
-        this.status = "UNDER_REVIEW";
+        this.status = PublicationStatus.UNDER_REVIEW;
     }
 
 }

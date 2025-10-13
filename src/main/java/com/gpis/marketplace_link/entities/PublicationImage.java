@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -16,8 +17,8 @@ public class PublicationImage {
 
     @ManyToOne
     @JoinColumn(name = "publication_id")
+    @JsonIgnore
     private Publication publication;
 
 
 }
-

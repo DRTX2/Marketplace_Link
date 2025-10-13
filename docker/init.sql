@@ -240,11 +240,11 @@ INSERT INTO categories (name) VALUES
 -- NOTA: Usando coordenadas ficticias
 INSERT INTO publications (code, type, name, description, price, availability, status, location, category_id, vendor_id, working_hours)
 VALUES
-    ('PRD001', 'PRODUCT', 'Smartphone X', 'Último modelo de smartphone con 128GB', 699.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4847, -0.1807), 4326), 1, 3, NULL),
-    ('PRD002', 'PRODUCT', 'Sofá 3 Plazas', 'Sofá moderno de tela gris', 499.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4850, -0.1810), 4326), 2, 3, NULL),
-    ('SRV001', 'SERVICE', 'Clases de Yoga', 'Instructor certificado ofrece clases de yoga a domicilio', 20.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4820, -0.1820), 4326), 4, 4, '08:00-12:00'),
-    ('PRD003', 'PRODUCT', 'Bicicleta Montaña', 'Bicicleta MTB 29 pulgadas', 350.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4860, -0.1830), 4326), 4, 3, NULL),
-    ('SRV002', 'SERVICE', 'Reparación de PC', 'Servicio técnico de computadoras y laptops', 30.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.4870, -0.1840), 4326), 8, 4, '09:00-17:00'); -- Solo aquí tiene sentido si code es único
+    ('PRD001', 'PRODUCT', 'Smartphone X', 'Último modelo de smartphone con 128GB', 699.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 1, 3, NULL),
+    ('PRD002', 'PRODUCT', 'Sofá 3 Plazas', 'Sofá moderno de tela gris', 499.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 2, 3, NULL),
+    ('SRV001', 'SERVICE', 'Clases de Yoga', 'Instructor certificado ofrece clases de yoga a domicilio', 20.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 4, 4, '08:00-12:00'),
+    ('PRD003', 'PRODUCT', 'Bicicleta Montaña', 'Bicicleta MTB 29 pulgadas', 350.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 4, 3, NULL),
+    ('SRV002', 'SERVICE', 'Reparación de PC', 'Servicio técnico de computadoras y laptops', 30.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 8, 4, '09:00-17:00');
 
 -- ======================
 -- Inserción de imágenes de ejemplo para publicaciones
