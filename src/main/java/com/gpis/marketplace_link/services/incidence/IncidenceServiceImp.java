@@ -123,4 +123,16 @@ public class IncidenceServiceImp implements IncidenceService {
         return report;
     }
 
+    @Override
+    public void findAll() {
+
+        // Primero traer datos de las incidencias y sus reportes asociados, pero solo campos especificos.
+
+
+
+
+    }
+
+
+
 }

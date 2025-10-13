@@ -256,3 +256,50 @@ INSERT INTO publication_images (publication_id, path) VALUES
                                                           (3, 'images/yoga1.jpg'),
                                                           (4, 'images/bicicleta1.jpg'),
                                                           (5, 'images/pc_repair1.jpg');
+
+--- Para el flujo de moderación
+
+-- Se genera una automaticmaente cuando se reporta el producto. Es decir, se genera un reporte e incidencia como primer momento.
+CREATE TABLE incidences (
+                            id  BIGSERIAL PRIMARY KEY ,
+                            publication_id BIGINT NOT NULL,
+                            status VARCHAR(20) CHECK (status IN ('OPEN', 'UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            last_report_at TIMESTAMP,
+                            auto_closed BOOLEAN DEFAULT FALSE,
+                            moderator_id BIGINT,
+                            decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED')),
+
+                            FOREIGN KEY (publication_id) REFERENCES publications(id),
+                            FOREIGN KEY (moderator_id) REFERENCES users(id)
+);
+
+-- Mas de 3 reportes, el producto se oculta.
+CREATE TABLE reports (
+                         id BIGSERIAL PRIMARY KEY ,
+                         incidence_id BIGINT NOT NULL,
+                         reporter_id BIGINT NOT NULL,                     -- comprador que reporta
+                         reason VARCHAR(100) NOT NULL,              -- tipo de reporte
+                         comment TEXT,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                         FOREIGN KEY (incidence_id) REFERENCES incidences(id),
+                         FOREIGN KEY (reporter_id) REFERENCES users(id)
+);
+
+-- Solo se puede apelar una vez.
+CREATE TABLE appeals (
+                         id  BIGSERIAL PRIMARY KEY ,
+                         incidence_id BIGINT NOT NULL,                          -- sigue apuntando a la incidencia, SOLO una por incidencia (UNIQUE)
+                         seller_id BIGINT NOT NULL,				 -- el vendedor que hace la apelacion
+                         reason TEXT NOT NULL,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         new_moderator_id BIGINT,				 -- para elegir el nuevo moderador se hace cálculos en el back
+                         final_decision VARCHAR(20) CHECK (final_decision IN ('ACCEPTED','REJECTED')),
+                         final_decision_at TIMESTAMP,
+
+                         CONSTRAINT unique_incidence UNIQUE (incidence_id),
+                         FOREIGN KEY (incidence_id) REFERENCES incidences(id),
+                         FOREIGN KEY (seller_id) REFERENCES users(id),
+                         FOREIGN KEY (new_moderator_id) REFERENCES users(id)
+);

@@ -7,6 +7,6 @@ public interface IncidenceService {
 
     void autoclose();
     ReportResponse report(RequestReportProduct req);
-
+    void findAll();
 
 }
