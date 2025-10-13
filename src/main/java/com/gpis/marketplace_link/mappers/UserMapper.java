@@ -18,6 +18,7 @@ public interface UserMapper {
     @Mapping(target = "roles", source = "roles", qualifiedByName = "requestsToRoles")
     @Mapping(target = "gender", source = "gender", qualifiedByName = "stringToGender")
     @Mapping(target = "accountStatus", source = "accountStatus", qualifiedByName = "stringToAccountStatus")
+    @Mapping(target = "publications", ignore = true) //De momento
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "emailVerifiedAt", ignore = true)
@@ -29,6 +30,7 @@ public interface UserMapper {
     @Mapping(target = "gender", source = "gender", qualifiedByName = "stringToGender")
     @Mapping(target = "accountStatus", source = "accountStatus", qualifiedByName = "stringToAccountStatus")
     @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "publications", ignore = true) //De momento
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "emailVerifiedAt", ignore = true)
     @Mapping(target = "id", ignore = true)
