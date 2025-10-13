@@ -29,10 +29,14 @@ public class ProdSecurityConfig {
     private static final String[] WHITELIST = {
             "/login",
             "/api/users/**",
-            "/api/auth/password-reset/**"
+            "/api/auth/password/**",
+            "/api/auth/resend-verification",
+            "/error",
     };
 
-    private static final String[] WHITELIST_GET = {};
+    private static final String[] WHITELIST_GET = {
+            "/api/auth/verify-email"
+    };
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {

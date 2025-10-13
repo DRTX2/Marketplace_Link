@@ -24,10 +24,16 @@ public class UserService {
     private final UserRepository userRepo;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationService emailVerificationService;
 
     public boolean existsUserByEmail(String email) { return userRepo.existsByEmail(email); }
 
     public List<User> findAll() { return userRepo.findAll(); }
+
+    public User findByUsername(String username) {
+        return userRepo.findByUsername(username).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado con username " + username));
+    }
 
     public User findByEmail(String email) {
         return userRepo.findByEmail(email).orElseThrow(() ->
@@ -41,28 +47,37 @@ public class UserService {
                 : roleService.resolveOrThrow(user.getRoles());
         user.setRoles(roles);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        if (user.getAccountStatus() == null) user.setAccountStatus(AccountStatus.ACTIVE);
-        return userRepo.save(user);
+
+        if (user.getAccountStatus() == null) user.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
+
+        User savedUser = userRepo.save(user);
+        emailVerificationService.sendVerificationEmail(savedUser);
+        return savedUser;
     }
 
     @Transactional
     public User update(Long id, User draft) {
-        if (draft.getId() == null) draft.setId(id);
-        userRepo.findById(id).orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado: " + id));
-        return userRepo.save(draft);
+        User existing = userRepo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado: " + id));
+
+        apply(existing, draft);
+        return userRepo.save(existing);
     }
 
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest req) {
         var user = userRepo.findById(userId).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
         if (!passwordEncoder.matches(req.currentPassword(), user.getPassword()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
+
         if (!req.newPassword().equals(req.confirmNewPassword()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Las contraseñas no coinciden");
+
         if (passwordEncoder.matches(req.newPassword(), user.getPassword()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nueva contraseña no puede ser igual a la actual");
+
         user.setPassword(passwordEncoder.encode(req.newPassword()));
         userRepo.save(user);
     }
@@ -109,6 +124,27 @@ public class UserService {
         if (user.getAccountStatus() != AccountStatus.ACTIVE) {
             user.setAccountStatus(AccountStatus.ACTIVE);
             userRepo.save(user);
+        }
+    }
+
+    private void apply(User existing, User draft) {
+        if (draft.getUsername() != null)        existing.setUsername(draft.getUsername());
+        if (draft.getEmail() != null)           existing.setEmail(draft.getEmail());
+        if (draft.getPhone() != null)           existing.setPhone(draft.getPhone());
+        if (draft.getFirstName() != null)       existing.setFirstName(draft.getFirstName());
+        if (draft.getLastName() != null)        existing.setLastName(draft.getLastName());
+        if (draft.getCedula() != null)          existing.setCedula(draft.getCedula());
+        if (draft.getGender() != null)          existing.setGender(draft.getGender());
+        if (draft.getAccountStatus() != null)   existing.setAccountStatus(draft.getAccountStatus());
+
+        if (draft.getPassword() != null && !draft.getPassword().isBlank()) {
+            if (passwordEncoder.matches(draft.getPassword(), existing.getPassword()))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nueva contraseña no puede ser igual a la actual");
+            existing.setPassword(passwordEncoder.encode(draft.getPassword()));
+        }
+
+        if (draft.getRoles() != null) {
+            existing.setRoles(roleService.resolveOrThrow(draft.getRoles()));
         }
     }
 }

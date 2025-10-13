@@ -82,7 +82,10 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_status", nullable = false, length = 10)
-    private AccountStatus accountStatus = AccountStatus.ACTIVE;
+    private AccountStatus accountStatus = AccountStatus.PENDING_VERIFICATION;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

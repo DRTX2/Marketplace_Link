@@ -27,12 +27,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // ====== SOFT DELETE ======
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query(value = "UPDATE users SET enabled = false WHERE id = :id AND enabled = true", nativeQuery = true)
+    @Query(value = "UPDATE users SET deleted = true WHERE id = :id AND deleted = false", nativeQuery = true)
     int desactivateById(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query(value = "UPDATE users SET enabled = true WHERE id = :id AND enabled = false", nativeQuery = true)
+    @Query(value = "UPDATE users SET deleted = false WHERE id = :id AND deleted = true", nativeQuery = true)
     int activateById(@Param("id") Long id);
 
     // ====== EXISTS (INCLUYENDO INACTIVOS) ======

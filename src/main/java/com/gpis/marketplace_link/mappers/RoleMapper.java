@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.mappers;
 
+import com.gpis.marketplace_link.dto.role.RoleRequest;
 import com.gpis.marketplace_link.dto.role.RoleResponse;
 import com.gpis.marketplace_link.entities.Role;
 import org.mapstruct.Mapper;
@@ -13,19 +14,19 @@ public interface RoleMapper {
 
     RoleResponse toResponse(Role role);
 
-    @Named("nameToRole")
-    default Role nameToRole(String name) {
-        if (name == null) return null;
+    @Named("requestToRole")
+    default Role requestToRole(RoleRequest req) {
+        if (req == null) return null;
         Role role = new Role();
-        role.setName(name);
+        role.setName(req.roleName());
         return role;
     }
 
-    @Named("namesToRoles")
-    default Set<Role> namesToRoles(Set<String> names) {
-        if (names == null) return null;
-        return names.stream()
-                .map(this::nameToRole)
+    @Named("requestsToRoles")
+    default Set<Role> requestsToRoles(Set<RoleRequest> requests) {
+        if (requests == null) return null;
+        return requests.stream()
+                .map(this::requestToRole)
                 .collect(Collectors.toSet());
     }
 
