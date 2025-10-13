@@ -66,5 +66,8 @@ public class Publication {
     @OneToMany(mappedBy = "publication", cascade = CascadeType.ALL)
     private List<PublicationImage> images;
 
+    public void setUnderReview() {
+        this.status = "UNDER_REVIEW";
+    }
 
 }

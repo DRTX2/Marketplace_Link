@@ -26,10 +26,10 @@ public class GeocodingService {
 
             if (response != null && response.containsKey("address")) {
                 Map<String, String> address = (Map<String, String>) response.get("address");
-                return Optional.of(new LocationInfo(
-                        address.get("city") != null ? address.get("city") : address.get("town"),
-                        address.get("country")
-                ));
+                //return Optional.of(new LocationInfo(
+                //        address.get("city") != null ? address.get("city") : address.get("town"),
+                //        address.get("country")
+                //));
             }
         } catch (Exception e) {
                 // TODO

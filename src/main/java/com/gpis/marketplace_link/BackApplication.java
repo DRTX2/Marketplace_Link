@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
@@ -14,4 +15,8 @@ public class BackApplication {
         SpringApplication.run(BackApplication.class, args);
     }
 
+    @PostConstruct
+    public void testEnv() {
+        System.out.println("DB_PORT desde Spring: " + System.getenv("DB_PORT"));
+    }
 }
