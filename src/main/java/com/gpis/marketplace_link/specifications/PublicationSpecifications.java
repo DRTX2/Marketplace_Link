@@ -48,8 +48,11 @@ public class PublicationSpecifications {
 
     }
 
-    public static Specification<Publication> withinDistance(double lat, double lon, double distanceKm) {
+    public static Specification<Publication> withinDistance(Double lat, Double lon, Double distanceKm) {
         return (root, query, builder) -> {
+            if (lat == null || lon == null || distanceKm == null) {
+                return null;
+            }
             String wktPoint = String.format("SRID=4326;POINT(%f %f)", lon, lat);
             return builder.isTrue(
                 builder.function(

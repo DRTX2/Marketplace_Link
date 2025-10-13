@@ -1,13 +1,13 @@
 version: "3.9"
 
 services:
-  # Contenedor principal (producción / dev)
+  # Contenedor principal
   mplink_postgres:
     image: postgis/postgis:16-3.5
     container_name: mplink_marketplace_db
     restart: unless-stopped
     ports:
-      - "${DB_PORT_PROD:-5436}:5432"
+      - "${DB_PORT:-5436}:5432"
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -16,7 +16,7 @@ services:
       - mplink_pgdata:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER_PROD} -d ${DB_NAME_PROD}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
