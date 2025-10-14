@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.exceptions.advices;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.gpis.marketplace_link.exceptions.business.BusinessException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -104,6 +105,16 @@ public class GlobalValidationExceptionHandler {
             errors.put("$", msg);
         }
         pd.setProperty("errors", errors);
+        return pd;
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ProblemDetail handleBusinessException(BusinessException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+        pd.setTitle("Business Error");
         return pd;
     }
 }
