@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.security;
+package com.gpis.marketplace_link.security.common;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +12,5 @@ public class CommonSecurityBeans {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
 
 }

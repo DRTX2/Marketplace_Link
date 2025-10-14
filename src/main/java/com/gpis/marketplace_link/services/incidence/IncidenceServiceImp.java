@@ -6,17 +6,15 @@ import com.gpis.marketplace_link.entities.Publication;
 import com.gpis.marketplace_link.entities.Report;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
-import com.gpis.marketplace_link.exceptions.business.*;
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundException;
-import com.gpis.marketplace_link.repository.IncidenceRepository;
-import com.gpis.marketplace_link.repository.PublicationRepository;
-import com.gpis.marketplace_link.repository.ReportRepository;
-import com.gpis.marketplace_link.repository.UserRepository;
-import com.gpis.marketplace_link.valueObjects.PublicationStatus;
+import com.gpis.marketplace_link.repositories.IncidenceRepository;
+import com.gpis.marketplace_link.repositories.PublicationRepository;
+import com.gpis.marketplace_link.repositories.ReportRepository;
+import com.gpis.marketplace_link.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +36,14 @@ public class IncidenceServiceImp implements IncidenceService {
     private final ReportRepository reportRepository;
     private static final int REPORT_THRESHOLD = 3;
 
+    /**
+     * Cierra automáticamente las incidencias que superan un tiempo determinado sin actividad.
+     *
+     * Por defecto, el sistema cierra incidencias que llevan más de 24 horas abiertas.
+     * Este proceso se ejecuta de forma transaccional y actualiza en lote los registros
+     * afectados en la base de datos.
+     *
+     */
     @Transactional
     @Override
     public void autoclose() {
@@ -47,6 +53,40 @@ public class IncidenceServiceImp implements IncidenceService {
         log.info("Incidencias auto-cerradas: {}", updated);
     }
 
+    /**
+     * Crea o agrega un reporte de publicacion a una incidencia existente.
+     *
+     * Este método valida si ya existe una incidencia activa (OPEN, UNDER_REVIEW o APPEALED)
+     * asociada a una publicación. Si no existe, crea una nueva incidencia y asocia el primer reporte.
+     * En caso contrario, evalúa el estado actual de la incidencia y aplica las siguientes reglas:
+     *
+     * UNDER_REVIEW: no se permite agregar nuevos reportes.
+     * APPEALED: no se permite agregar nuevos reportes.
+     * RESOLVED: no se permite agregar nuevos reportes.
+     * OPEN: se permite agregar nuevos reportes y actualizar la fecha del último reporte.
+     *
+     * Si una incidencia acumula tres o más reportes, el estado de la publicación se cambia a
+     * UNDER_REVIEW y la incidencia pasa automáticamente a revisión.
+     *
+     * @param req objeto con los datos del reporte (ID de la publicación, ID del reportador,
+     *            razon y comentario).
+     *
+     * @return una instancia de {@link ReportResponse} con los datos del reporte generado
+     *         o agregado correctamente.
+     *
+     * @throws PublicationNotFoundException si la publicación asociada al reporte no existe.
+     * @throws ReporterNotFoundException si el usuario reportador no existe.
+     * @throws PublicationUnderReviewException si se intenta agregar un reporte a una incidencia bajo revisión.
+     * @throws CannotAddReportToAppealedIncidenceException si se intenta agregar un reporte a una incidencia apelada.
+     * @throws IncidenceAlreadyResolvedException si la incidencia ya está resuelta y no se pueden agregar más reportes.
+     *
+     * @see com.gpis.marketplace_link.entities.Incidence
+     * @see com.gpis.marketplace_link.entities.Report
+     * @see com.gpis.marketplace_link.dto.incidence.ReportResponse
+     * @see com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException
+     * @see com.gpis.marketplace_link.exceptions.business.incidences.CannotAddReportToAppealedIncidenceException
+     * @see com.gpis.marketplace_link.exceptions.business.incidences.IncidenceAlreadyResolvedException
+     */
     @Transactional
     @Override
     public ReportResponse report(RequestReportProduct req) {
@@ -90,7 +130,7 @@ public class IncidenceServiceImp implements IncidenceService {
             // La incidencia esta resuelta, no se pueden agregar mas reportes.
             // En teoria, nunca deberia llegar a este punto, pero por las dudas se deja el chequeo.
             if (existingIncidence.getStatus().equals(IncidenceStatus.RESOLVED)) {
-                throw new BusinessException("La incidencia ya fue resuelta, no se pueden agregar mas reportes.");
+                throw new IncidenceAlreadyResolvedException("La incidencia ya fue resuelta, no se pueden agregar mas reportes.");
             }
 
             // La incidencia esta abierta, se puede agregar el reporte.
@@ -129,6 +169,10 @@ public class IncidenceServiceImp implements IncidenceService {
         return report;
     }
 
+    /**
+     * Trae todas las incidencias que aún no han sido revisadas por un moderador.
+     * @return lista de incidencias con estado OPEN.
+     */
     @Override
     public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
 
@@ -178,6 +222,20 @@ public class IncidenceServiceImp implements IncidenceService {
         }).collect(Collectors.toList());
     }
 
+    @Override
+    public List<IncidenceDetailsResponse> fetchAllReviewed() {
+        return List.of();
+    }
+
+    /**
+     * Permite a un moderador reclamar una incidencia que se encuentra abierta para revisarla.
+     * @param req datos de la incidencia y el moderador que la reclama.
+     * @return respuesta con los detalles de la incidencia reclamada.
+     * @throws IncidenceNotOpenException si la incidencia no esta abierta.
+     * @throws IncidenceAlreadyClaimedException si la incidencia ya fue reclamada por otro moderador.
+     * @throws IncidenceAlreadyDecidedException si la incidencia ya tiene una decision tomada.
+     * @throws ModeratorNotFoundException si el moderador no existe.
+     */
     @Override
     public ClaimIncidenceResponse claim(RequestClaimIncidence req) {
 

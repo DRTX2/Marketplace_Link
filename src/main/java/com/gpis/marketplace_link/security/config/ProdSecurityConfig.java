@@ -17,6 +17,20 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+/**
+ * Configuración de seguridad para el entorno de producción (perfil "prod").
+ *
+ * Esta clase establece las reglas de autorización, habilita la seguridad basada en JWT
+ * y configura los filtros de autenticación y validación.
+ *
+ * Anotaciones principales:
+ * - @Configuration: indica que esta clase define beans de configuración.
+ * - @EnableWebSecurity: activa la configuración de seguridad web de Spring Security.
+ * - @EnableMethodSecurity: habilita la seguridad a nivel de métodos (@PreAuthorize, etc.).
+ * - @Profile("prod"): esta configuración solo se carga cuando el perfil activo es "prod".
+ *
+ * El enfoque es completamente stateless, ya que se usa JWT en lugar de sesiones tradicionales.
+ */
 @RequiredArgsConstructor
 @Configuration
 @EnableWebSecurity

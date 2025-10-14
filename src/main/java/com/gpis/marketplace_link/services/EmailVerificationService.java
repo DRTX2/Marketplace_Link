@@ -2,10 +2,10 @@ package com.gpis.marketplace_link.services;
 
 import com.gpis.marketplace_link.entities.EmailVerificationToken;
 import com.gpis.marketplace_link.entities.User;
-import com.gpis.marketplace_link.repository.EmailVerificationTokenRepository;
-import com.gpis.marketplace_link.repository.UserRepository;
-import com.gpis.marketplace_link.valueObjects.AccountStatus;
-import com.gpis.marketplace_link.valueObjects.EmailType;
+import com.gpis.marketplace_link.repositories.EmailVerificationTokenRepository;
+import com.gpis.marketplace_link.repositories.UserRepository;
+import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.enums.EmailType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;

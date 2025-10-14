@@ -1,6 +1,6 @@
 package com.gpis.marketplace_link.dto.mail;
 
-import com.gpis.marketplace_link.valueObjects.EmailType;
+import com.gpis.marketplace_link.enums.EmailType;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;

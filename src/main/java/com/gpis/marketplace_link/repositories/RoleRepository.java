@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.repository;
+package com.gpis.marketplace_link.repositories;
 
 import com.gpis.marketplace_link.entities.Role;
 import org.springframework.data.jpa.repository.JpaRepository;

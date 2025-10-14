@@ -1,3 +1,3 @@
-package com.gpis.marketplace_link.valueObjects;
+package com.gpis.marketplace_link.mail;
 
 public record Attachment(String filename, byte[] content, String contentType) { }

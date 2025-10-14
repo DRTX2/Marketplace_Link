@@ -1,11 +1,8 @@
 package com.gpis.marketplace_link.entities;
 
-import com.gpis.marketplace_link.valueObjects.AccountStatus;
-import com.gpis.marketplace_link.valueObjects.PublicationStatus;
+import com.gpis.marketplace_link.enums.PublicationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.SoftDelete;
-import org.hibernate.annotations.SoftDeleteType;
 import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
