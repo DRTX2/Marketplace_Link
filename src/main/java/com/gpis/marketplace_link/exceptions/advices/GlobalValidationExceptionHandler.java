@@ -17,7 +17,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import java.util.*;
 
 @RestControllerAdvice
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(0) // alta prioridad
 public class GlobalValidationExceptionHandler {
 
     // Maneja errores de validación de DTOs (por ejemplo @Valid en el body)
