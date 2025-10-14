@@ -149,7 +149,7 @@ public class IncidenceServiceImp implements IncidenceService {
             Publication pub = i.getPublication();
             publicationResponse.setId(pub.getId());
             publicationResponse.setDescription(pub.getDescription());
-            publicationResponse.setStatus(PublicationStatus.valueOf(pub.getStatus()));
+            publicationResponse.setStatus(pub.getStatus());
             publicationResponse.setName(pub.getName());
             detailsResponse.setPublication(publicationResponse);
 
