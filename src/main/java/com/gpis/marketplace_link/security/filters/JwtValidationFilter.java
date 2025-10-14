@@ -1,5 +1,7 @@
 package com.gpis.marketplace_link.security.filters;
 
+import com.gpis.marketplace_link.entities.User;
+import com.gpis.marketplace_link.security.user.CustomUserDetails;
 import com.gpis.marketplace_link.security.user.SimpleGrantedAuthorityJsonCreator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -73,6 +75,7 @@ public class JwtValidationFilter extends BasicAuthenticationFilter {
         try {
             Claims claims = Jwts.parser().verifyWith(SECRET_KEY).build().parseSignedClaims(token).getPayload();
             String username = claims.getSubject();
+            Long userId = claims.get("userId", Long.class);
             Object authoritiesClaims = claims.get("authorities");
 
             Collection<? extends GrantedAuthority> authorities = Arrays.asList(
@@ -81,8 +84,13 @@ public class JwtValidationFilter extends BasicAuthenticationFilter {
                             .readValue(authoritiesClaims.toString().getBytes(), SimpleGrantedAuthority[].class)
             );
 
+            User user = new User();
+            user.setId(userId);
+            user.setEmail(username);
+            CustomUserDetails userDetails = new CustomUserDetails(user);
+
             UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(username, null, authorities);
+                    new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
 
             SecurityContextHolder.getContext().setAuthentication(auth);
             chain.doFilter(request, response);

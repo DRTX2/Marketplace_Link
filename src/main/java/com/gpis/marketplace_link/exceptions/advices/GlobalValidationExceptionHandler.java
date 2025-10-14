@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.exceptions.advices;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.gpis.marketplace_link.exceptions.business.AuthenticationCredentialsNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.BusinessException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.core.annotation.Order;
@@ -116,4 +117,15 @@ public class GlobalValidationExceptionHandler {
         pd.setTitle("Business Error");
         return pd;
     }
+
+    @ExceptionHandler(AuthenticationCredentialsNotFoundException.class)
+    public ProblemDetail handleAuthCredentialsNotFound(AuthenticationCredentialsNotFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                ex.getMessage()
+        );
+        pd.setTitle("Authentication Credentials Not Found");
+        return pd;
+    }
+
 }

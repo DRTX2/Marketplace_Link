@@ -15,6 +15,7 @@ import com.gpis.marketplace_link.repositories.IncidenceRepository;
 import com.gpis.marketplace_link.repositories.PublicationRepository;
 import com.gpis.marketplace_link.repositories.ReportRepository;
 import com.gpis.marketplace_link.repositories.UserRepository;
+import com.gpis.marketplace_link.security.service.SecurityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class IncidenceServiceImp implements IncidenceService {
 
+    private final SecurityService securityService;
     private final IncidenceRepository incidenceRepository;
     private final PublicationRepository publicationRepository;
     private final UserRepository userRepository;
@@ -175,9 +177,22 @@ public class IncidenceServiceImp implements IncidenceService {
      */
     @Override
     public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
-
         List<Incidence> incidences = this.incidenceRepository.findAllUnreviewedWithDetails();
+       return generateIncidenteDetailResponse(incidences);
+    }
 
+    /**
+     * Trae todas las incidencias que han sido reclamadas por el moderador actual.
+     * @return lista de incidencias reclamadas por el moderador actual.
+     */
+    @Override
+    public List<IncidenceDetailsResponse> fetchAllReviewed() {
+        Long currentUserId = securityService.getCurrentUserId();
+        List<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId);
+        return generateIncidenteDetailResponse(incidences);
+    }
+
+    public List<IncidenceDetailsResponse> generateIncidenteDetailResponse(List<Incidence> incidences) {
         return incidences.stream().map((i) -> {
 
             IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
@@ -215,16 +230,11 @@ public class IncidenceServiceImp implements IncidenceService {
                 simpleResponse.setReporter(userSimpleResponse);
 
                 return simpleResponse;
-            }).collect(Collectors.toList());
+            }).toList();
             detailsResponse.setReports(reports);
 
             return detailsResponse;
-        }).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<IncidenceDetailsResponse> fetchAllReviewed() {
-        return List.of();
+        }).toList();
     }
 
     /**

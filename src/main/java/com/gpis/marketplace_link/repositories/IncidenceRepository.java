@@ -77,6 +77,16 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     """)
     List<Incidence> findAllUnreviewedWithDetails();
 
+    @Query("""
+        SELECT DISTINCT i FROM Incidence i
+        JOIN FETCH i.publication p
+        JOIN FETCH i.reports r
+        JOIN FETCH r.reporter
+        WHERE i.status = com.gpis.marketplace_link.enums.IncidenceStatus.OPEN AND
+              i.moderator.id = :userId
+    """)
+    List<Incidence> findAllReviewedWithDetails(Long userId);
+
 
 
 
