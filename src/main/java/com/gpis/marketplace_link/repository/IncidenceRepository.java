@@ -18,12 +18,24 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     @Modifying
     @Query("""
     UPDATE Incidence i
-    SET i.status = com.gpis.marketplace_link.enums.IncidenceStatus.RESOLVED,
-        i.autoclosed = true
-    WHERE i.status = com.gpis.marketplace_link.enums.IncidenceStatus.OPEN
-      AND i.lastReportAt < :cutoff
-    """)
+    SET i.status = com.gpis.marketplace_link.enums.IncidenceStatus.RESOLVED, i.autoclosed = true
+    WHERE i.status = com.gpis.marketplace_link.enums.IncidenceStatus.OPEN AND i.lastReportAt < :cutoff """)
     int bulkAutoClose(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("""
+        SELECT DISTINCT i FROM Incidence i
+        JOIN FETCH i.publication p
+        JOIN FETCH i.reports r
+        JOIN FETCH r.reporter
+        WHERE i.status = com.gpis.marketplace_link.enums.IncidenceStatus.OPEN AND
+              i.moderator IS NULL AND
+              i.decision IS NULL
+    """)
+    List<Incidence> findAllUnreviewedWithDetails();
+
+
+
+
 
 
 }

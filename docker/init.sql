@@ -268,7 +268,9 @@ CREATE TABLE incidences (
                             last_report_at TIMESTAMP,
                             auto_closed BOOLEAN DEFAULT FALSE,
                             moderator_id BIGINT,
+                            moderator_comment TEXT,
                             decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED')),
+
 
                             FOREIGN KEY (publication_id) REFERENCES publications(id),
                             FOREIGN KEY (moderator_id) REFERENCES users(id)

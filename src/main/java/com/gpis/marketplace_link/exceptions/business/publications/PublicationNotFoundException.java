@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.exceptions;
+package com.gpis.marketplace_link.exceptions.business.publications;
 
 public class PublicationNotFoundException extends RuntimeException {
     public PublicationNotFoundException(String message) {

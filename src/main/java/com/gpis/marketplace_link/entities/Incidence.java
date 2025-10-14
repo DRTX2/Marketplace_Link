@@ -39,6 +39,9 @@ public class Incidence {
     @JoinColumn(name = "moderator_id")
     private User moderator; // por default es null
 
+    @Column(name = "moderator_comment", length = 500)
+    private String moderatorComment; // por default es null
+
     @Enumerated(EnumType.STRING)
     private Decision decision; // por default es null
 
