@@ -4,6 +4,7 @@ import com.gpis.marketplace_link.entities.Publication;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.util.Locale;
 
 public class PublicationSpecifications {
 
@@ -53,14 +54,16 @@ public class PublicationSpecifications {
             if (lat == null || lon == null || distanceKm == null) {
                 return null;
             }
-            String wktPoint = String.format("SRID=4326;POINT(%f %f)", lon, lat);
+            double meters = Math.max(0d, distanceKm) * 1000d;
+            // Forzar punto decimal independientemente de la configuración regional
+            String wktPoint = String.format(Locale.US, "SRID=4326;POINT(%f %f)", lon, lat);
             return builder.isTrue(
                 builder.function(
                     "ST_DWithin",
                     Boolean.class,
                     root.get("location"),
                     builder.function("ST_GeogFromText", Object.class, builder.literal(wktPoint)),
-                    builder.literal(distanceKm * 1000)
+                    builder.literal(meters)
                 )
             );
         };
