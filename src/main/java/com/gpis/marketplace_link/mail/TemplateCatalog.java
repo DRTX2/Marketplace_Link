@@ -1,5 +1,6 @@
-package com.gpis.marketplace_link.valueObjects;
+package com.gpis.marketplace_link.mail;
 
+import com.gpis.marketplace_link.enums.EmailType;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

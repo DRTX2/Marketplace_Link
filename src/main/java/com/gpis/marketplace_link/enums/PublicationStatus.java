@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.valueObjects;
+package com.gpis.marketplace_link.enums;
 
 //-- VISIBLE,  UNDER_REVIEW , BLOCKED,
 public enum PublicationStatus {

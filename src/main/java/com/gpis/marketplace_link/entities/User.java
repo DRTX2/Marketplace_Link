@@ -1,7 +1,7 @@
 package com.gpis.marketplace_link.entities;
 
-import com.gpis.marketplace_link.valueObjects.AccountStatus;
-import com.gpis.marketplace_link.valueObjects.Gender;
+import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.enums.Gender;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SoftDelete;

@@ -1,7 +1,7 @@
 package com.gpis.marketplace_link.services;
 
 import com.gpis.marketplace_link.entities.Role;
-import com.gpis.marketplace_link.repository.RoleRepository;
+import com.gpis.marketplace_link.repositories.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

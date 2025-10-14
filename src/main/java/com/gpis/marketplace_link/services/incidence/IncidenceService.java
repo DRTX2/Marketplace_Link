@@ -9,6 +9,7 @@ public interface IncidenceService {
     void autoclose();
     ReportResponse report(RequestReportProduct req);
     List<IncidenceDetailsResponse> fetchAllUnreviewed();
+    List<IncidenceDetailsResponse> fetchAllReviewed();
     ClaimIncidenceResponse claim(RequestClaimIncidence req);
     //void makeDecision(RequestMakeDecision req);
 

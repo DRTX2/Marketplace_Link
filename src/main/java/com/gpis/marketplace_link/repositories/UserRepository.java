@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.repository;
+package com.gpis.marketplace_link.repositories;
 
 import com.gpis.marketplace_link.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +15,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // ====== FINDS y EXISTS actuales (solo activos por @SoftDelete) ======
     Optional<User> findByEmail(String email);
+
+    @Query("""
+        SELECT u FROM User u
+        LEFT JOIN FETCH u.roles r
+        WHERE LOWER(u.email) = LOWER(:email)
+    """)
+    Optional<User> findByEmailWithRoles(String email);
+
     Optional<User> findByUsername(String username);
     Optional<User> findByPhone(String phone);
     Optional<User> findByCedula(String cedula);

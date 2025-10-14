@@ -1,7 +1,6 @@
 package com.gpis.marketplace_link.dto.incidence;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.gpis.marketplace_link.valueObjects.PublicationStatus;
+import com.gpis.marketplace_link.enums.PublicationStatus;
 import lombok.Getter;
 import lombok.Setter;
 

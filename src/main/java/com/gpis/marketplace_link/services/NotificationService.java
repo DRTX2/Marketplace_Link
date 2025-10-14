@@ -1,7 +1,7 @@
 package com.gpis.marketplace_link.services;
 
-import com.gpis.marketplace_link.valueObjects.EmailType;
-import com.gpis.marketplace_link.valueObjects.NotificationMessage;
+import com.gpis.marketplace_link.enums.EmailType;
+import com.gpis.marketplace_link.mail.NotificationMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.Async;

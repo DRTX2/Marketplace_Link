@@ -4,8 +4,8 @@ import com.gpis.marketplace_link.dto.user.UserCreateRequest;
 import com.gpis.marketplace_link.dto.user.UserResponse;
 import com.gpis.marketplace_link.dto.user.UserUpdateRequest;
 import com.gpis.marketplace_link.entities.User;
-import com.gpis.marketplace_link.valueObjects.AccountStatus;
-import com.gpis.marketplace_link.valueObjects.Gender;
+import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.enums.Gender;
 import org.mapstruct.*;
 
 @Mapper(

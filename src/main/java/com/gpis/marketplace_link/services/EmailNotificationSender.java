@@ -1,9 +1,9 @@
 package com.gpis.marketplace_link.services;
 
-import com.gpis.marketplace_link.valueObjects.Attachment;
-import com.gpis.marketplace_link.valueObjects.NotificationMessage;
-import com.gpis.marketplace_link.valueObjects.TemplateCatalog;
-import com.gpis.marketplace_link.valueObjects.TemplateInfo;
+import com.gpis.marketplace_link.mail.Attachment;
+import com.gpis.marketplace_link.mail.NotificationMessage;
+import com.gpis.marketplace_link.mail.TemplateCatalog;
+import com.gpis.marketplace_link.mail.TemplateInfo;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;

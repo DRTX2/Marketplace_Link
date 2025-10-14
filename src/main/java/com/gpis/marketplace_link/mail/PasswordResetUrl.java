@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.valueObjects;
+package com.gpis.marketplace_link.mail;
 
 import lombok.Getter;
 
