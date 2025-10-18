@@ -66,7 +66,16 @@ public class IncidenceServiceImp implements IncidenceService {
             Incidence savedIncidence = incidenceRepository.save(incidence);
 
             User reporter = userRepository.findById(req.getReporterId()).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + req.getReporterId()));
-            Report report = createReportForIncidenceAndReporter(savedIncidence, reporter, req.getReason(), req.getComment());
+
+            Report report =
+                    Report.builder()
+                            .incidence(incidence)
+                            .reporter(reporter)
+                            .reason(req.getReason())
+                            .comment(req.getComment())
+                            .source(ReportSource.USER)
+                            .build();
+
             reportRepository.save(report);
 
             return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_AUTO);
@@ -91,7 +100,14 @@ public class IncidenceServiceImp implements IncidenceService {
                                         .findById(req.getReporterId())
                                         .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + req.getReporterId()));
 
-                Report report = createReportForIncidenceAndReporter(existingIncidence, reporter, req.getReason(), req.getComment());
+                Report report =
+                        Report.builder()
+                                        .incidence(existingIncidence)
+                                        .reporter(reporter)
+                                        .reason(req.getReason())
+                                        .comment(req.getComment())
+                                        .source(ReportSource.USER)
+                                        .build();
 
                 existingIncidence.getReports().add(report);
                 existingIncidence.setLastReportAt(LocalDateTime.now());
@@ -131,18 +147,25 @@ public class IncidenceServiceImp implements IncidenceService {
 
             Publication savedPublication = publicationRepository
                     .findById(publicationId)
-                    .orElseThrow(() -> new PublicationNotFoundException("Publicacion no encontrada con id=" + publicationId));
+                    .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
             savedPublication.setUnderReview();
 
             incidence.setPublication(savedPublication);
             incidence.setStatus(IncidenceStatus.UNDER_REVIEW);
             Incidence savedIncidence = incidenceRepository.save(incidence);
 
-            Report report = createReportForIncidenceAndReporter(savedIncidence, systemUser, req.getReason(), req.getComment());
+            Report report = Report.builder()
+                            .incidence(incidence)
+                            .reporter(systemUser)
+                            .reason(req.getReason())
+                            .comment((req.getComment()))
+                            .source(ReportSource.SYSTEM)
+                            .build();
+
             report.setSource(ReportSource.SYSTEM);
             reportRepository.save(report);
 
-            return buildReportResponse(savedIncidence.getId(), publicationId, "Reporte generado exitosamente.");
+            return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
         }
 
         Incidence inc = optional.get();
@@ -155,7 +178,14 @@ public class IncidenceServiceImp implements IncidenceService {
 
         // Si la incidencia esta bajo revision, se agrega neuva evidencia. Eso se diferencia de un usuario
         // que si esta bajo revision, no puede agregar mas (porque puede ser informacion "falsa" sabiendo que su publicacion esta bajo revision).
-        Report report = createReportForIncidenceAndReporter(inc, systemUser, req.getReason(), req.getComment());
+        Report report = Report.builder()
+                        .incidence(inc)
+                        .reporter(systemUser)
+                        .reason(req.getReason())
+                        .comment(req.getComment())
+                        .source(ReportSource.SYSTEM).build();
+
+        log.info("Adding system report to incidence id={} for publication id={}", report.getSource(), report.getId());
         inc.getReports().add(report);
 
         // Ahora, si esa incidencai esta abierta, automaticamente pasa a estar bajo revision.
@@ -167,15 +197,6 @@ public class IncidenceServiceImp implements IncidenceService {
 
         incidenceRepository.save(inc);
         return buildReportResponse(inc.getId(), publicationId, Messages.REPORT_SUCCESS);
-    }
-
-    private Report createReportForIncidenceAndReporter(Incidence incidence, User reporter,  String reason, String comment) {
-        Report report = new Report();
-        report.setIncidence(incidence);
-        report.setReason(reason);
-        report.setComment(comment);
-        report.setReporter(reporter);
-        return report;
     }
 
     private ReportResponse buildReportResponse(Long incidenceId, Long publicationId, String message) {
