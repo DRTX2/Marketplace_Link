@@ -2,11 +2,13 @@ package com.gpis.marketplace_link.entities;
 
 import com.gpis.marketplace_link.enums.ReportSource;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Getter
 @Setter
 @Entity(name = "reports")
@@ -39,6 +41,8 @@ public class Report {
     @PrePersist()
     public void prePersist() {
         createdAt = LocalDateTime.now();
-        source = ReportSource.USER;
+        if (source == null) {
+            source = ReportSource.USER;
+        }
     }
 }
