@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.entities;
 
+import com.gpis.marketplace_link.enums.ReportSource;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -20,7 +21,7 @@ public class Report {
     private Incidence incidence;
 
     @ManyToOne()
-    @JoinColumn(name = "reporter_id")
+    @JoinColumn(name = "reporter_id", nullable = true)
     private User reporter; // usuario que reporta
 
     @Column(name = "reason", nullable = false, length = 100)
@@ -32,8 +33,12 @@ public class Report {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt; // se setea al crear el reporte
 
+    @Enumerated(EnumType.STRING)
+    private ReportSource source; // fuente usuario o sistema
+
     @PrePersist()
     public void prePersist() {
         createdAt = LocalDateTime.now();
+        source = ReportSource.USER;
     }
 }

@@ -1,11 +1,13 @@
 package com.gpis.marketplace_link.services.incidence;
 
+import com.gpis.marketplace_link.dto.Messages;
 import com.gpis.marketplace_link.dto.incidence.*;
 import com.gpis.marketplace_link.entities.Incidence;
 import com.gpis.marketplace_link.entities.Publication;
 import com.gpis.marketplace_link.entities.Report;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
+import com.gpis.marketplace_link.enums.ReportSource;
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException;
@@ -16,6 +18,7 @@ import com.gpis.marketplace_link.repositories.PublicationRepository;
 import com.gpis.marketplace_link.repositories.ReportRepository;
 import com.gpis.marketplace_link.repositories.UserRepository;
 import com.gpis.marketplace_link.security.service.SecurityService;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,61 +39,19 @@ public class IncidenceServiceImp implements IncidenceService {
     private final UserRepository userRepository;
     private final ReportRepository reportRepository;
     private static final int REPORT_THRESHOLD = 3;
+    private static final String SYSTEM_USERNAME = "system_user";
 
-    /**
-     * Cierra automáticamente las incidencias que superan un tiempo determinado sin actividad.
-     *
-     * Por defecto, el sistema cierra incidencias que llevan más de 24 horas abiertas.
-     * Este proceso se ejecuta de forma transaccional y actualiza en lote los registros
-     * afectados en la base de datos.
-     *
-     */
     @Transactional
     @Override
     public void autoclose() {
         int hours = 24;
         LocalDateTime cutoff = LocalDateTime.now().minusHours(hours);
-        int updated = incidenceRepository.bulkAutoClose(cutoff);
-        log.info("Incidencias auto-cerradas: {}", updated);
+        incidenceRepository.bulkAutoClose(cutoff);
     }
 
-    /**
-     * Crea o agrega un reporte de publicacion a una incidencia existente.
-     *
-     * Este método valida si ya existe una incidencia activa (OPEN, UNDER_REVIEW o APPEALED)
-     * asociada a una publicación. Si no existe, crea una nueva incidencia y asocia el primer reporte.
-     * En caso contrario, evalúa el estado actual de la incidencia y aplica las siguientes reglas:
-     *
-     * UNDER_REVIEW: no se permite agregar nuevos reportes.
-     * APPEALED: no se permite agregar nuevos reportes.
-     * RESOLVED: no se permite agregar nuevos reportes.
-     * OPEN: se permite agregar nuevos reportes y actualizar la fecha del último reporte.
-     *
-     * Si una incidencia acumula tres o más reportes, el estado de la publicación se cambia a
-     * UNDER_REVIEW y la incidencia pasa automáticamente a revisión.
-     *
-     * @param req objeto con los datos del reporte (ID de la publicación, ID del reportador,
-     *            razon y comentario).
-     *
-     * @return una instancia de {@link ReportResponse} con los datos del reporte generado
-     *         o agregado correctamente.
-     *
-     * @throws PublicationNotFoundException si la publicación asociada al reporte no existe.
-     * @throws ReporterNotFoundException si el usuario reportador no existe.
-     * @throws PublicationUnderReviewException si se intenta agregar un reporte a una incidencia bajo revisión.
-     * @throws CannotAddReportToAppealedIncidenceException si se intenta agregar un reporte a una incidencia apelada.
-     * @throws IncidenceAlreadyResolvedException si la incidencia ya está resuelta y no se pueden agregar más reportes.
-     *
-     * @see com.gpis.marketplace_link.entities.Incidence
-     * @see com.gpis.marketplace_link.entities.Report
-     * @see com.gpis.marketplace_link.dto.incidence.ReportResponse
-     * @see com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException
-     * @see com.gpis.marketplace_link.exceptions.business.incidences.CannotAddReportToAppealedIncidenceException
-     * @see com.gpis.marketplace_link.exceptions.business.incidences.IncidenceAlreadyResolvedException
-     */
     @Transactional
     @Override
-    public ReportResponse report(RequestReportProduct req) {
+    public ReportResponse reportByUser(RequestUserReport req) {
         // Datos para o crear la incidencia o agregar el reporte a la incidencia existente.
         Long publicationId = req.getPublicationId();
         List<IncidenceStatus> status = List.of(IncidenceStatus.OPEN, IncidenceStatus.UNDER_REVIEW, IncidenceStatus.APPEALED);
@@ -99,21 +59,17 @@ public class IncidenceServiceImp implements IncidenceService {
 
         // No existe incidencia para ese producto, entonces crear la incidencia y el reporte.
         if (inc.isEmpty()) {
+            Publication savedPublication = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
+
             Incidence incidence = new Incidence();
-            Publication savedPublication = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException("Publicacion no encontrada con id=" + publicationId));
             incidence.setPublication(savedPublication);
             Incidence savedIncidence = incidenceRepository.save(incidence);
 
-            User reporter = userRepository.findById(req.getReporterId()).orElseThrow(() -> new ReporterNotFoundException("Reportador no encontrado con id=" + req.getReporterId()));
+            User reporter = userRepository.findById(req.getReporterId()).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + req.getReporterId()));
             Report report = createReportForIncidenceAndReporter(savedIncidence, reporter, req.getReason(), req.getComment());
             reportRepository.save(report);
 
-            ReportResponse response = new ReportResponse();
-            response.setIncidenceId(savedIncidence.getId());
-            response.setProductId(publicationId);
-            response.setMessage("Reporte generado exitosamente.");
-            response.setCreatedAt(LocalDateTime.now());
-            return response;
+            return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_AUTO);
 
         } else {
             // Como existe la incidencia se considera casos como
@@ -121,24 +77,22 @@ public class IncidenceServiceImp implements IncidenceService {
 
             // El producto esta en revision, no se pueden agregar mas reportes.
             if (existingIncidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
-                throw new PublicationUnderReviewException("La incidencia esta en revision, no se pueden agregar mas reportes.");
+                throw new PublicationUnderReviewException(Messages.PUBLICATION_UNDER_REVIEW_CANNOT_ADD_REPORT);
             }
 
             // La incidencia esta apelada, no se pueden agregar mas reportes.
             if (existingIncidence.getStatus().equals(IncidenceStatus.APPEALED)) {
-                throw new CannotAddReportToAppealedIncidenceException("La incidencia esta apelada, no se pueden agregar mas reportes.");
-            }
-
-            // La incidencia esta resuelta, no se pueden agregar mas reportes.
-            // En teoria, nunca deberia llegar a este punto, pero por las dudas se deja el chequeo.
-            if (existingIncidence.getStatus().equals(IncidenceStatus.RESOLVED)) {
-                throw new IncidenceAlreadyResolvedException("La incidencia ya fue resuelta, no se pueden agregar mas reportes.");
+                throw new IncidenceAppealedException(Messages.INCIDENCE_APPEALED_CANNOT_ADD_REPORT);
             }
 
             // La incidencia esta abierta, se puede agregar el reporte.
             if (existingIncidence.getStatus().equals(IncidenceStatus.OPEN)) {
-                User reporter = userRepository.findById(req.getReporterId()).orElseThrow(() -> new ReporterNotFoundException("Reportador no encontrado con id=" + req.getReporterId()));
+                User reporter = userRepository
+                                        .findById(req.getReporterId())
+                                        .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + req.getReporterId()));
+
                 Report report = createReportForIncidenceAndReporter(existingIncidence, reporter, req.getReason(), req.getComment());
+
                 existingIncidence.getReports().add(report);
                 existingIncidence.setLastReportAt(LocalDateTime.now());
                 incidenceRepository.save(existingIncidence);
@@ -146,20 +100,73 @@ public class IncidenceServiceImp implements IncidenceService {
 
             // Si la cantidad de reportes es mayor o igual a 3, se cambia el estado de la publicacion bajo revision.
             if (existingIncidence.getReports().size() >= REPORT_THRESHOLD) {
-                Publication savedPublication = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException("Publicacion no encontrada con id=" + publicationId));
-                existingIncidence.setStatus(IncidenceStatus.UNDER_REVIEW);
+                Publication savedPublication = publicationRepository
+                                                        .findById(publicationId)
+                                                        .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
                 savedPublication.setUnderReview();
+                existingIncidence.setStatus(IncidenceStatus.UNDER_REVIEW);
                 publicationRepository.save(savedPublication);
                 incidenceRepository.save(existingIncidence);
             }
 
-            ReportResponse response = new ReportResponse();
-            response.setIncidenceId(existingIncidence.getId());
-            response.setProductId(publicationId);
-            response.setMessage("Reporte agregado exitosamente.");
-            response.setCreatedAt(LocalDateTime.now());
-            return response;
+            return buildReportResponse(existingIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
         }
+    }
+
+    @Transactional
+    @Override
+    public ReportResponse reportBySystem(RequestSystemReport req) {
+        Long publicationId = req.getPublicationId();
+        List<IncidenceStatus> status = List.of(
+                IncidenceStatus.OPEN,
+                IncidenceStatus.UNDER_REVIEW,
+                IncidenceStatus.APPEALED
+        );
+
+        Optional<Incidence> optional = incidenceRepository.findByPublicationIdAndStatusIn(publicationId, status);
+        User systemUser = userRepository.findByUsername(SYSTEM_USERNAME).orElseThrow(() -> new ReporterNotFoundException(Messages.USER_SYSTEM_NOT_FOUND));
+
+        if (optional.isEmpty()) {
+            Incidence incidence = new Incidence();
+
+            Publication savedPublication = publicationRepository
+                    .findById(publicationId)
+                    .orElseThrow(() -> new PublicationNotFoundException("Publicacion no encontrada con id=" + publicationId));
+            savedPublication.setUnderReview();
+
+            incidence.setPublication(savedPublication);
+            incidence.setStatus(IncidenceStatus.UNDER_REVIEW);
+            Incidence savedIncidence = incidenceRepository.save(incidence);
+
+            Report report = createReportForIncidenceAndReporter(savedIncidence, systemUser, req.getReason(), req.getComment());
+            report.setSource(ReportSource.SYSTEM);
+            reportRepository.save(report);
+
+            return buildReportResponse(savedIncidence.getId(), publicationId, "Reporte generado exitosamente.");
+        }
+
+        Incidence inc = optional.get();
+
+        // El caso ya no esta abierto a nueva evidencia. Se evalua si la decision tomada fue correcta en base a lo que ya existia antes de la apelacion.
+        // Por eso, si esta apelada no se puede agregar mas evidencia.
+        if (inc.getStatus().equals(IncidenceStatus.APPEALED)) {
+            throw new IncidenceAppealedException(Messages.INCIDENCE_APPEALED_CANNOT_ADD_REPORT);
+        }
+
+        // Si la incidencia esta bajo revision, se agrega neuva evidencia. Eso se diferencia de un usuario
+        // que si esta bajo revision, no puede agregar mas (porque puede ser informacion "falsa" sabiendo que su publicacion esta bajo revision).
+        Report report = createReportForIncidenceAndReporter(inc, systemUser, req.getReason(), req.getComment());
+        inc.getReports().add(report);
+
+        // Ahora, si esa incidencai esta abierta, automaticamente pasa a estar bajo revision.
+        if (inc.getStatus().equals(IncidenceStatus.OPEN)) {
+            inc.setStatus(IncidenceStatus.UNDER_REVIEW);
+            inc.getPublication().setUnderReview();
+            publicationRepository.save(inc.getPublication());
+        }
+
+        incidenceRepository.save(inc);
+        return buildReportResponse(inc.getId(), publicationId, Messages.REPORT_SUCCESS);
     }
 
     private Report createReportForIncidenceAndReporter(Incidence incidence, User reporter,  String reason, String comment) {
@@ -171,29 +178,30 @@ public class IncidenceServiceImp implements IncidenceService {
         return report;
     }
 
-    /**
-     * Trae todas las incidencias que aún no han sido revisadas por un moderador.
-     * @return lista de incidencias con estado OPEN.
-     */
+    private ReportResponse buildReportResponse(Long incidenceId, Long publicationId, String message) {
+        return ReportResponse.builder()
+                .incidenceId(incidenceId)
+                .productId(publicationId)
+                .message(message)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
     @Override
     public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
         List<Incidence> incidences = this.incidenceRepository.findAllUnreviewedWithDetails();
-       return generateIncidenteDetailResponse(incidences);
+       return generateIncidenceDetailResponse(incidences);
     }
 
-    /**
-     * Trae todas las incidencias que han sido reclamadas por el moderador actual.
-     * @return lista de incidencias reclamadas por el moderador actual.
-     */
     @Override
     public List<IncidenceDetailsResponse> fetchAllReviewed() {
         Long currentUserId = securityService.getCurrentUserId();
         List<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId);
-        return generateIncidenteDetailResponse(incidences);
+        return generateIncidenceDetailResponse(incidences);
     }
 
-    public List<IncidenceDetailsResponse> generateIncidenteDetailResponse(List<Incidence> incidences) {
-        return incidences.stream().map((i) -> {
+    public List<IncidenceDetailsResponse> generateIncidenceDetailResponse(@NotNull List<Incidence> incidences) {
+        return incidences.stream().map(i -> {
 
             IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
 
@@ -213,7 +221,7 @@ public class IncidenceServiceImp implements IncidenceService {
             detailsResponse.setPublication(publicationResponse);
 
             // Reportes
-            List<SimpleReportResponse> reports = i.getReports().stream().map((r) -> {
+            List<SimpleReportResponse> reports = i.getReports().stream().map(r -> {
 
                 SimpleReportResponse simpleResponse = new SimpleReportResponse();
                 User reporter = r.getReporter();
@@ -237,15 +245,6 @@ public class IncidenceServiceImp implements IncidenceService {
         }).toList();
     }
 
-    /**
-     * Permite a un moderador reclamar una incidencia que se encuentra abierta para revisarla.
-     * @param req datos de la incidencia y el moderador que la reclama.
-     * @return respuesta con los detalles de la incidencia reclamada.
-     * @throws IncidenceNotOpenException si la incidencia no esta abierta.
-     * @throws IncidenceAlreadyClaimedException si la incidencia ya fue reclamada por otro moderador.
-     * @throws IncidenceAlreadyDecidedException si la incidencia ya tiene una decision tomada.
-     * @throws ModeratorNotFoundException si el moderador no existe.
-     */
     @Override
     public ClaimIncidenceResponse claim(RequestClaimIncidence req) {
 
@@ -274,8 +273,4 @@ public class IncidenceServiceImp implements IncidenceService {
 
         return response;
     }
-
-
-
-
 }

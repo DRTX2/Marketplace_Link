@@ -88,4 +88,11 @@ public class BusinessAdvice {
         pd.setTitle("Reporter Not Found");
         return pd;
     }
+
+    @ExceptionHandler(SystemActionAlreadyTakenException.class)
+    public ProblemDetail handleSystemActionAlreadyTaken(SystemActionAlreadyTakenException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("System Action Already Taken");
+        return pd;
+    }
 }
