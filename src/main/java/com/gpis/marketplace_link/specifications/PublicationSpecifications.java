@@ -8,6 +8,9 @@ import java.util.Locale;
 
 public class PublicationSpecifications {
 
+    public static Specification<Publication> idIs(Long id) {
+        return (root, query, builder) -> builder.equal(root.get("id"), id);
+    }
 
     public static Specification<Publication> statusIs(String status) {
         return (root, query, builder) ->
@@ -55,7 +58,7 @@ public class PublicationSpecifications {
                 return null;
             }
             double meters = Math.max(0d, distanceKm) * 1000d;
-            // Forzar punto decimal independientemente de la configuración regional
+
             String wktPoint = String.format(Locale.US, "SRID=4326;POINT(%f %f)", lon, lat);
             return builder.isTrue(
                 builder.function(

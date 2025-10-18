@@ -1,6 +1,6 @@
 package com.gpis.marketplace_link.dto.publication.response;
 
-public record PublicationImageDTO(
+public record PublicationImageReponse(
         Long id,
         String url
 ) {}

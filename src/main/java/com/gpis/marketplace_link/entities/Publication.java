@@ -1,6 +1,8 @@
 package com.gpis.marketplace_link.entities;
 
+import com.gpis.marketplace_link.enums.PublicationAvailable;
 import com.gpis.marketplace_link.enums.PublicationStatus;
+import com.gpis.marketplace_link.enums.PublicationType;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.locationtech.jts.geom.Point;
@@ -23,7 +25,8 @@ public class Publication {
     private String code;
 
     @Column(nullable = false)
-    private String type;
+    @Enumerated(EnumType.STRING)
+    private PublicationType type;
 
     @Column(nullable = false)
     private String name;
@@ -35,7 +38,8 @@ public class Publication {
     private BigDecimal price;
 
     @Column(nullable = false)
-    private String availability;
+    @Enumerated(EnumType.STRING)
+    private PublicationAvailable availability;
 
 
     @Enumerated(EnumType.STRING)

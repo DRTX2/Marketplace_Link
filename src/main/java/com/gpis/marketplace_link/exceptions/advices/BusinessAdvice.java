@@ -56,7 +56,7 @@ public class BusinessAdvice {
     @ExceptionHandler(PublicationNotFoundException.class)
     public ProblemDetail handlePublicationNotFound(PublicationNotFoundException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
-        pd.setTitle("Publication Not Found");
+        pd.setTitle("Publicación no encontrada");
         return pd;
     }
 

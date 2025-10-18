@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS publications (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
-    availability VARCHAR(20) NOT NULL  DEFAULT 'AVAILABLE', -- AVAILABLE, NOT_AVAILABLE
+    availability VARCHAR(20) NOT NULL  DEFAULT 'AVAILABLE', -- AVAILABLE, UNAVAILABLE
     status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE', -- VISIBLE,  UNDER_REVIEW , BLOCKED,
     publication_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     location geography(Point, 4326), --WGS 84 empleado para sistemas GPS
