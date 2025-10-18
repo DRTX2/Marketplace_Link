@@ -9,11 +9,9 @@ import java.util.Collection;
 
 /**
  * Implementación personalizada de la interfaz UserDetails de Spring Security.
- * <p>
  * Esta clase adapta la entidad User de la aplicación al modelo de seguridad
  * de Spring, permitiendo que el framework maneje autenticación y autorización
  * con los datos del usuario almacenados en la base de datos.
- * <p>
  * Los roles del usuario se convierten en objetos GrantedAuthority,
  * necesarios para el control de acceso dentro de Spring Security.
  */
@@ -54,6 +52,6 @@ public record CustomUserDetails(User user) implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return !this.user.getDeleted(); // si deleted = false --> enabled = true --> puede iniciar sesión
     }
 }

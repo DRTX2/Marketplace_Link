@@ -9,7 +9,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class RequestReportProduct {
+public class RequestUserReport {
 
     @NotNull(message = "Publication ID is required")
     @JsonProperty("publication_id")

@@ -16,25 +16,31 @@ public class IncidenceController {
 
     private final IncidenceService incidenceService;
 
-    @PreAuthorize("hasAnyRole('BUYER', 'SELLER')")
+    //@PreAuthorize("hasAnyRole('BUYER', 'SELLER')")
     @PostMapping("/report")
-    public ReportResponse report(@Valid @RequestBody RequestReportProduct req) {
-        return incidenceService.report(req);
+    public ReportResponse report(@Valid @RequestBody RequestUserReport req) {
+        return incidenceService.reportByUser(req);
     }
 
-    @PreAuthorize("hasRole('MODERATOR')")
+    // Solo para test
+    @PostMapping("/system-report")
+    public ReportResponse systemReport(@Valid @RequestBody RequestSystemReport req) {
+        return incidenceService.reportBySystem(req);
+    }
+
+    //@PreAuthorize("hasRole('MODERATOR')")
     @GetMapping("/all")
     public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
         return incidenceService.fetchAllUnreviewed();
     }
 
-    @PreAuthorize("hasRole('MODERATOR')")
+    //@PreAuthorize("hasRole('MODERATOR')")
     @GetMapping("/my")
     public List<IncidenceDetailsResponse> fetchMyReviewed() {
         return incidenceService.fetchAllReviewed();
     }
 
-    @PreAuthorize("hasRole('MODERATONR')")
+    //@PreAuthorize("hasRole('MODERATONR')")
     @PostMapping("/claim")
     public ClaimIncidenceResponse claim(@Valid @RequestBody RequestClaimIncidence req) {
         return incidenceService.claim(req);

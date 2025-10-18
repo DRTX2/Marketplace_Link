@@ -173,7 +173,8 @@ INSERT INTO roles (name) VALUES
                              ('ROLE_ADMIN'),
                              ('ROLE_MODERATOR'),
                              ('ROLE_SELLER'),
-                             ('ROLE_BUYER')
+                             ('ROLE_BUYER'),
+                             ('ROLE_SYSTEM')
 ON CONFLICT (name) DO NOTHING;
 
 -- ======================
@@ -182,6 +183,31 @@ ON CONFLICT (name) DO NOTHING;
 -- ================
 -- Seed: single admin + sample users (bcrypt via crypt)
 -- ================
+
+-- Usuario del sistema
+INSERT INTO users (
+    cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at
+) VALUES (
+             '9999999999',
+             'system_user',
+             crypt('system123', gen_salt('bf', 12)),
+             'system@marketplace.local',
+             '+0000000000',
+             'System',
+             'Bot',
+             'OTHER',
+             'ACTIVE',
+             NOW()
+         ) ON CONFLICT (username) DO NOTHING;
+
+-- Rol del sistema
+INSERT INTO users_roles (user_id, role_id)
+VALUES (
+           (SELECT id FROM users WHERE username = 'system_user'),
+           (SELECT id FROM roles WHERE name = 'ROLE_SYSTEM')
+       ) ON CONFLICT (user_id, role_id) DO NOTHING;
+
+-- Otros usuarios
 
 -- Admin único
 INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at)
@@ -212,11 +238,11 @@ ON CONFLICT (username) DO NOTHING;
 -- Role mapping by fixed ids (ensure PKs match this order)
 -- ================
 INSERT INTO users_roles (user_id, role_id) VALUES
-                                               (1, 1), -- admin           -> ROLE_ADMIN
-                                               (2, 2), -- moderator_user  -> ROLE_MODERATOR
-                                               (3, 3), -- seller_one      -> ROLE_SELLER
-                                               (4, 3), -- seller_two      -> ROLE_SELLER
-                                               (5, 4)  -- buyer_user      -> ROLE_BUYER
+                                               (2, 1), -- admin           -> ROLE_ADMIN
+                                               (3, 2), -- moderator_user  -> ROLE_MODERATOR
+                                               (4, 3), -- seller_one      -> ROLE_SELLER
+                                               (5, 3), -- seller_two      -> ROLE_SELLER
+                                               (6, 4)  -- buyer_user      -> ROLE_BUYER
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- ======================
@@ -280,11 +306,11 @@ CREATE TABLE incidences (
 CREATE TABLE reports (
                          id BIGSERIAL PRIMARY KEY ,
                          incidence_id BIGINT NOT NULL,
-                         reporter_id BIGINT NOT NULL,                     -- comprador que reporta
+                         reporter_id BIGINT NOT NULL,                     -- comprador que reporta o puede ser el propio sistema.
                          reason VARCHAR(100) NOT NULL,              -- tipo de reporte
                          comment TEXT,
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
+                         source VARCHAR(20) CHECK (source IN ('USER', 'SYSTEM')) DEFAULT 'USER',
                          FOREIGN KEY (incidence_id) REFERENCES incidences(id),
                          FOREIGN KEY (reporter_id) REFERENCES users(id)
 );

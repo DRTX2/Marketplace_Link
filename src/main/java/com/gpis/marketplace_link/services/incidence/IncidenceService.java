@@ -7,7 +7,8 @@ import java.util.List;
 public interface IncidenceService {
 
     void autoclose();
-    ReportResponse report(RequestReportProduct req);
+    ReportResponse reportByUser(RequestUserReport req);
+    ReportResponse reportBySystem(RequestSystemReport req);
     List<IncidenceDetailsResponse> fetchAllUnreviewed();
     List<IncidenceDetailsResponse> fetchAllReviewed();
     ClaimIncidenceResponse claim(RequestClaimIncidence req);
