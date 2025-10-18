@@ -38,13 +38,7 @@ public class PublicationService {
                 .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
                 .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm));
 
-
-        // Obtener lista ordenada para respetar sort del pageable
-        List<Publication> all = repository.findAll(spec, pageable.getSort());
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), all.size());
-        List<Publication> pageSlice = start <= end ? all.subList(start, end) : List.of();
-        Page<Publication> publications = new PageImpl<>(pageSlice, pageable, all.size());
+        Page<Publication> publications = repository.findAll(spec, pageable);
 
         return publications.map(mapper::toResponse);
     }
