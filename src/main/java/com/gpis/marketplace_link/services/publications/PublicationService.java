@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.services;
+package com.gpis.marketplace_link.services.publications;
 
 import com.gpis.marketplace_link.dto.publication.response.PublicationResponse;
 import com.gpis.marketplace_link.entities.Publication;
@@ -7,14 +7,12 @@ import com.gpis.marketplace_link.repositories.PublicationRepository;
 import com.gpis.marketplace_link.specifications.PublicationSpecifications;
 import com.gpis.marketplace_link.enums.PublicationStatus;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 public class PublicationService {
@@ -38,13 +36,7 @@ public class PublicationService {
                 .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
                 .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm));
 
-
-        // Obtener lista ordenada para respetar sort del pageable
-        List<Publication> all = repository.findAll(spec, pageable.getSort());
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), all.size());
-        List<Publication> pageSlice = start <= end ? all.subList(start, end) : List.of();
-        Page<Publication> publications = new PageImpl<>(pageSlice, pageable, all.size());
+        Page<Publication> publications = repository.findAll(spec, pageable);
 
         return publications.map(mapper::toResponse);
     }

@@ -5,6 +5,7 @@ import com.gpis.marketplace_link.exceptions.business.publications.PublicationNot
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundException;
+import com.gpis.marketplace_link.exceptions.business.publications.DangerousDictionaryLoadException;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -63,6 +64,13 @@ public class BusinessAdvice {
     public ProblemDetail handlePublicationUnderReview(PublicationUnderReviewException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         pd.setTitle("Publication Under Review");
+        return pd;
+    }
+
+    @ExceptionHandler(DangerousDictionaryLoadException.class)
+    public ProblemDetail handleDangerousDictionaryLoad(DangerousDictionaryLoadException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        pd.setTitle("Error al cargar el diccionario de palabras peligrosas");
         return pd;
     }
 

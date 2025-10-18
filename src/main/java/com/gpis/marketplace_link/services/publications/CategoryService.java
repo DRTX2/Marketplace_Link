@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.services;
+package com.gpis.marketplace_link.services.publications;
 
 import com.gpis.marketplace_link.entities.Category;
 import com.gpis.marketplace_link.repositories.CategoryRepository;

@@ -29,6 +29,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  web:
+    resources:
+      static-locations: file:uploads/
+
 
 logging:
   level:
