@@ -24,6 +24,6 @@ public interface PublicationMapper {
         if (publication == null) return null;
         List<PublicationImage> images = publication.getImages();
         if (images == null || images.isEmpty()) return null;
-        return toPublicationImageDTO(images.get(0));
+        return toPublicationImageDTO(images.getFirst());
     }
 }

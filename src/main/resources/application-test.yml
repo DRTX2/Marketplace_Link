@@ -14,6 +14,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  web:
+    resources:
+      static-locations: file:uploads/
+
 
   mail:
     host: ${MAIL_HOST:localhost}

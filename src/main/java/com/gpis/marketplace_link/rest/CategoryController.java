@@ -2,7 +2,7 @@ package com.gpis.marketplace_link.rest;
 
 
 import com.gpis.marketplace_link.entities.Category;
-import com.gpis.marketplace_link.services.CategoryService;
+import com.gpis.marketplace_link.services.publications.CategoryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
