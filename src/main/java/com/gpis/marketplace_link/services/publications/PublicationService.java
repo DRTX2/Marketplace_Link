@@ -1,4 +1,4 @@
-package com.gpis.marketplace_link.services;
+package com.gpis.marketplace_link.services.publications;
 
 import com.gpis.marketplace_link.dto.publication.response.PublicationResponse;
 import com.gpis.marketplace_link.entities.Publication;
@@ -7,14 +7,12 @@ import com.gpis.marketplace_link.repositories.PublicationRepository;
 import com.gpis.marketplace_link.specifications.PublicationSpecifications;
 import com.gpis.marketplace_link.enums.PublicationStatus;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 public class PublicationService {

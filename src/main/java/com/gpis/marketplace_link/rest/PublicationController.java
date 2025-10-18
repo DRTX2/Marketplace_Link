@@ -1,7 +1,7 @@
 package com.gpis.marketplace_link.rest;
 
 import com.gpis.marketplace_link.dto.publication.response.PublicationResponse;
-import com.gpis.marketplace_link.services.PublicationService;
+import com.gpis.marketplace_link.services.publications.PublicationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
