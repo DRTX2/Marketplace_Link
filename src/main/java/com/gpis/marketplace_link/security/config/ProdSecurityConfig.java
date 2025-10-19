@@ -1,7 +1,7 @@
 package com.gpis.marketplace_link.security.config;
 
 import com.gpis.marketplace_link.security.filters.JwtAuthenticationFilter;
-import com.gpis.marketplace_link.security.filters.JwtValidationFilter;
+import com.gpis.marketplace_link.security.filters.JwtAuthorizationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -67,7 +67,7 @@ public class ProdSecurityConfig {
                         .requestMatchers(HttpMethod.GET, WHITELIST_GET).permitAll()
                         .anyRequest().authenticated())
                 .addFilter(new JwtAuthenticationFilter(authManager))
-                .addFilter(new JwtValidationFilter(authManager))
+                .addFilter(new JwtAuthorizationFilter(authManager))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(management ->
                         management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

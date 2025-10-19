@@ -10,10 +10,8 @@ public class UserSimpleResponse {
 
     private Long id;
 
-    @JsonProperty("first_name")
-    private String firstName;
+    private String fullname;
 
-    @JsonProperty("last_name")
-    private String lastName;
-    private String gender;
+    private String email;
+
 }

@@ -1,22 +1,20 @@
 package com.gpis.marketplace_link.services.incidence;
 
 import com.gpis.marketplace_link.dto.Messages;
+import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
-import com.gpis.marketplace_link.entities.Incidence;
-import com.gpis.marketplace_link.entities.Publication;
-import com.gpis.marketplace_link.entities.Report;
-import com.gpis.marketplace_link.entities.User;
+import com.gpis.marketplace_link.entities.*;
+import com.gpis.marketplace_link.enums.AppealStatus;
+import com.gpis.marketplace_link.enums.IncidenceDecision;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
 import com.gpis.marketplace_link.enums.ReportSource;
+import com.gpis.marketplace_link.exceptions.business.incidences.IncidenceNotAppealableException;
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundException;
-import com.gpis.marketplace_link.repositories.IncidenceRepository;
-import com.gpis.marketplace_link.repositories.PublicationRepository;
-import com.gpis.marketplace_link.repositories.ReportRepository;
-import com.gpis.marketplace_link.repositories.UserRepository;
+import com.gpis.marketplace_link.repositories.*;
 import com.gpis.marketplace_link.security.service.SecurityService;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +36,7 @@ public class IncidenceServiceImp implements IncidenceService {
     private final PublicationRepository publicationRepository;
     private final UserRepository userRepository;
     private final ReportRepository reportRepository;
+    private final AppealRepository appealRepository;
     private static final int REPORT_THRESHOLD = 3;
     private static final String SYSTEM_USERNAME = "system_user";
 
@@ -143,6 +142,7 @@ public class IncidenceServiceImp implements IncidenceService {
         User systemUser = userRepository.findByUsername(SYSTEM_USERNAME).orElseThrow(() -> new ReporterNotFoundException(Messages.USER_SYSTEM_NOT_FOUND));
 
         if (optional.isEmpty()) {
+            log.info("Entro al empty");
             Incidence incidence = new Incidence();
 
             Publication savedPublication = publicationRepository
@@ -167,6 +167,7 @@ public class IncidenceServiceImp implements IncidenceService {
 
             return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
         }
+        log.info("No entro al empty");
 
         Incidence inc = optional.get();
 
@@ -185,7 +186,6 @@ public class IncidenceServiceImp implements IncidenceService {
                         .comment(req.getComment())
                         .source(ReportSource.SYSTEM).build();
 
-        log.info("Adding system report to incidence id={} for publication id={}", report.getSource(), report.getId());
         inc.getReports().add(report);
 
         // Ahora, si esa incidencai esta abierta, automaticamente pasa a estar bajo revision.
@@ -208,12 +208,14 @@ public class IncidenceServiceImp implements IncidenceService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
         List<Incidence> incidences = this.incidenceRepository.findAllUnreviewedWithDetails();
        return generateIncidenceDetailResponse(incidences);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<IncidenceDetailsResponse> fetchAllReviewed() {
         Long currentUserId = securityService.getCurrentUserId();
@@ -230,7 +232,7 @@ public class IncidenceServiceImp implements IncidenceService {
             detailsResponse.setAutoClosed(i.getAutoclosed());
             detailsResponse.setCreatedAt(i.getCreatedAt());
             detailsResponse.setStatus(i.getStatus());
-            detailsResponse.setDecision(i.getDecision());
+            detailsResponse.setIncidenceDecision(i.getDecision());
 
             // Publicacion
             SimplePublicationResponse publicationResponse = new SimplePublicationResponse();
@@ -249,9 +251,8 @@ public class IncidenceServiceImp implements IncidenceService {
 
                 UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
                 userSimpleResponse.setId(reporter.getId());
-                userSimpleResponse.setGender(reporter.getGender().toString());
-                userSimpleResponse.setFirstName(reporter.getFirstName());
-                userSimpleResponse.setLastName(reporter.getLastName());
+                userSimpleResponse.setEmail(reporter.getEmail());
+                userSimpleResponse.setFullname(reporter.getFullName());
 
                 simpleResponse.setId(r.getId());
                 simpleResponse.setComment(r.getComment());
@@ -266,24 +267,35 @@ public class IncidenceServiceImp implements IncidenceService {
         }).toList();
     }
 
+    @Transactional
     @Override
     public ClaimIncidenceResponse claim(RequestClaimIncidence req) {
 
-        Incidence incidence = incidenceRepository.findById(req.getIncidenceId()).orElseThrow(() -> new IncidenceNotFoundException("Incidencia no encontrada con id=" + req.getIncidenceId()));
+        Incidence incidence = incidenceRepository.findById(req.getIncidenceId())
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
 
-        if (!incidence.getStatus().equals(IncidenceStatus.OPEN)) {
-            throw new IncidenceNotOpenException("La incidencia no se encuentra abierta para poder ser reclamada.");
-        }
+        Long currentUserId = this.securityService.getCurrentUserId();
+
+        User moderator = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ModeratorNotFoundException(Messages.MODERATOR_NOT_FOUND + currentUserId));
 
         if (incidence.getModerator() != null) {
             throw new IncidenceAlreadyClaimedException("La incidencia ya fue reclamada por otro moderador.");
         }
-
         if (incidence.getDecision() != null) {
-            throw new IncidenceAlreadyDecidedException("La incidencia ya tiene una decision tomada.");
+            throw new IncidenceAlreadyDecidedException("La incidencia ya tiene una decisión final.");
+        }
+        if (Boolean.TRUE.equals(incidence.getAutoclosed())) {
+            throw new IncidenceAlreadyClosedException("La incidencia fue cerrada automáticamente y no puede reclamarse.");
         }
 
-        User moderator = userRepository.findById(req.getModeratorId()).orElseThrow(() -> new ModeratorNotFoundException("Moderador no encontrado con id=" + req.getModeratorId()));
+        if (incidence.getStatus() == IncidenceStatus.OPEN) {
+            incidence.setStatus(IncidenceStatus.UNDER_REVIEW);
+        } else if (incidence.getStatus() != IncidenceStatus.UNDER_REVIEW) {
+            // si no esta ni OPEN ni UNDER_REVIEW, no se puede reclamar
+            throw new IncidenceNotClaimableException("La incidencia no puede ser reclamada en su estado actual: " + incidence.getStatus());
+        }
+
         incidence.setModerator(moderator);
         incidenceRepository.save(incidence);
 
@@ -294,4 +306,136 @@ public class IncidenceServiceImp implements IncidenceService {
 
         return response;
     }
+
+    @Transactional
+    @Override
+    public DecisionResponse makeDecision(RequestMakeDecision req) {
+
+        Incidence incidence = incidenceRepository.findById(req.getIncidenceId())
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
+
+        if (!incidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
+            throw new IncidenceNotUnderReviewException("No puedes tomar una decisión porque la incidencia no está en revisión. Estado actual: " + incidence.getStatus());
+        }
+
+        // Solo puedo hacer la deceision si la incidencia es mia (como moderador)
+        Long currentUserId = this.securityService.getCurrentUserId();
+
+        // Buscar la incidencia y ver que el id del moderador concide con el currentUserId
+        boolean belongsToModerator = incidenceRepository.existsByIdAndModeratorId(req.getIncidenceId(), currentUserId);
+
+        if (!belongsToModerator) {
+            throw new IncidenceNotBelongToModeratorException("La incidencia no pertenece al moderador actual.");
+        }
+
+        IncidenceDecision decision = req.getDecision();
+
+        incidence.setModeratorComment(req.getComment());
+        incidence.setDecision(decision);
+        incidence.setStatus(IncidenceStatus.RESOLVED);
+
+        if (decision.equals(IncidenceDecision.APPROVED)) {
+            incidence.getPublication().setVisible();
+        }
+
+        if (decision.equals(IncidenceDecision.REJECTED)) {
+            incidence.getPublication().setBlocked();
+        }
+
+        incidenceRepository.save(incidence);
+
+        return new DecisionResponse(
+                incidence.getId(),
+                incidence.getDecision(),
+                incidence.getStatus().name(),
+                "Decisión procesada correctamente."
+        );
+    }
+
+    @Transactional
+    @Override
+    public AppealResponse appeal(RequestAppealIncidence req) {
+
+        // verificar existencia
+        Incidence incidence = incidenceRepository.findById(req.getIncidenceId())
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
+
+        // verificar que este rechazada
+        if (!incidence.getDecision().equals(IncidenceDecision.REJECTED)) {
+            throw new IncidenceNotAppealableException("Solo se pueden apelar incidencias que hayan sido rechazadas.");
+        }
+
+        // ver si esa incidencia ya tiene una apelacion, si es asi, no puede apelar de nuevo.
+        boolean hasAppeal = appealRepository.existsByIncidenceId(incidence.getId());
+        if (hasAppeal) {
+            throw new IncidenceAlreadyAppealedException("La incidencia ya tiene una apelación registrada.");
+        }
+
+        // el que hace la apelacion (usuario actual)
+        Long currentUserId = this.securityService.getCurrentUserId();
+
+        incidence.setStatus(IncidenceStatus.APPEALED);
+        Incidence appealedIncidence = incidenceRepository.save(incidence);
+
+        User seller = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + currentUserId));
+
+        Appeal appeal = new Appeal();
+        appeal.setIncidence(appealedIncidence);
+        appeal.setReason(req.getReason());
+        appeal.setSeller(seller);
+
+        // Calculo del nuevo moderador.
+        User previousModerator = appealedIncidence.getModerator();
+        Long newModeratorId = userRepository.findLeastBusyModeratorExcludingId(previousModerator.getId());
+
+        if (newModeratorId == null) {
+            // No hay otros moderadores disponibles. Entonces pasa a una cola de espera, pero el cliente sabra que cada dia a las 3,30 am
+            // se intentara asignar automaticamente otro moderador.
+            appeal.setStatus(AppealStatus.FAILED_NO_MOD);
+            Appeal saved = appealRepository.save(appeal);
+
+            return AppealResponse.builder()
+                    .appealId(saved.getId())
+                    .incidenceId(appealedIncidence.getId())
+                    .message("Apelación creada exitosamente. Pendiente de asignación de moderador.")
+                    .status(AppealStatus.FAILED_NO_MOD)
+                    .createdAt(LocalDateTime.now())
+                    .previousModerator(null)
+                    .newModerator(null)
+                    .build();
+        }
+
+        // Si hay moderadores disponibles
+        User newModerator = userRepository.findById(newModeratorId)
+                .orElseThrow(() -> new ModeratorNotFoundException(Messages.MODERATOR_NOT_FOUND + newModeratorId));
+
+        appeal.setNewModerator(newModerator);
+        appeal.setStatus(AppealStatus.ASSIGNED);
+        Appeal saved = appealRepository.save(appeal);
+
+        // formar los dtos para moderadores
+        ModeratorInfo previousModeratorInfo = new ModeratorInfo();
+        previousModeratorInfo.setId(previousModerator.getId());
+        previousModeratorInfo.setFullName(previousModerator.getFullName());
+        previousModeratorInfo.setEmail(previousModerator.getEmail());
+
+        ModeratorInfo newModeratorInfo = new ModeratorInfo();
+        newModeratorInfo.setId(newModerator.getId());
+        newModeratorInfo.setFullName(newModerator.getFullName());
+        newModeratorInfo.setEmail(newModerator.getEmail());
+
+        // formar respuesta final
+        return AppealResponse.builder()
+                .appealId(saved.getId())
+                .incidenceId(appealedIncidence.getId())
+                .message("Apelación creada exitosamente.")
+                .status(AppealStatus.ASSIGNED)
+                .createdAt(LocalDateTime.now())
+                .previousModerator(previousModeratorInfo)
+                .newModerator(newModeratorInfo)
+                .build();
+    }
+
+
 }

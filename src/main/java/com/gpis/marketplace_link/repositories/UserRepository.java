@@ -14,6 +14,46 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
 
     // ====== FINDS y EXISTS actuales (solo activos por @SoftDelete) ======
+
+    /**
+     * Busca el moderador con menor carga de trabajo actual, excluyendo a uno específico.
+     *
+     * Este método ejecuta un query que selecciona a todos los usuarios con el rol de moderador,
+     * cuenta el número total de incidencias y apelaciones que tienen asignadas y los ordena por:
+     *
+     * 1. Cantidad total de tareas (incidencias + apelaciones) en orden ascendente.
+     *    - El moderador con menos asignaciones aparecerá primero.
+     * 2. Fecha de la incidencia más antigua (MIN(i.created_at)) en orden ascendente.
+     *    - Si hay empate en la cantidad de tareas, se prioriza al moderador que lleva más tiempo
+     *      sin recibir una nueva asignación.
+     *
+     * También se excluye del resultado al moderador cuyo ID se pasa como parámetro excludeId.
+     * Esto es útil cuando se desea reasignar una incidencia y no devolverla al mismo moderador.
+     *
+     * Detalles del query:
+     * - JOIN users_roles y JOIN roles: filtra únicamente usuarios con rol ROLE_MODERATOR.
+     * - LEFT JOIN incidences y LEFT JOIN appeals: se cuentan tareas incluso si el moderador no tiene ninguna.
+     * - COUNT(DISTINCT i.id) + COUNT(DISTINCT a.id): total de tareas por moderador.
+     * - COALESCE(MIN(i.created_at), NOW()): si no tiene incidencias aún, se usa la fecha actual.
+     *
+     * @param excludeId ID del moderador que debe ser excluido del resultado.
+     * @return El ID del moderador menos ocupado actualmente.
+     */
+    @Query(value =
+            """
+       select u.id
+       from users u
+       join users_roles ur ON u.id = ur.user_id
+       join roles r on r.id = ur.role_id
+       left join incidences i ON i.moderator_id = u.id
+       left join appeals a on a.new_moderator_id = u.id
+       where r.name = 'ROLE_MODERATOR' and u.id <> :excludeId
+       group by u.id
+       order by count(distinct i.id) + count(distinct a.id) asc, coalesce(min(i.created_at), now()) asc
+       limit 1
+      """, nativeQuery = true)
+    Long findLeastBusyModeratorExcludingId(@Param("excludeId") Long excludeId);
+
     Optional<User> findByEmail(String email);
 
     @Query("""

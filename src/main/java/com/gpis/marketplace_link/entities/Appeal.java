@@ -1,6 +1,8 @@
 package com.gpis.marketplace_link.entities;
 
-import com.gpis.marketplace_link.enums.Decision;
+import com.gpis.marketplace_link.enums.AppealDecision;
+import com.gpis.marketplace_link.enums.AppealStatus;
+import com.gpis.marketplace_link.enums.IncidenceDecision;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,7 +11,8 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
-@Entity(name = "appeals")
+@Entity
+@Table(name = "appeals")
 public class Appeal {
 
     @Id
@@ -17,11 +20,11 @@ public class Appeal {
     private Long id;
 
     @OneToOne()
-    @JoinColumn(name = "incidence_id")
+    @JoinColumn(name = "incidence_id", nullable = false)
     private Incidence incidence;
 
     @ManyToOne()
-    @JoinColumn(name = "seller_id")
+    @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
 
     private String reason;
@@ -29,19 +32,22 @@ public class Appeal {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Enumerated(EnumType.STRING)
+    private AppealStatus status = AppealStatus.PENDING;
+
     @ManyToOne()
-    @JoinColumn(name = "new_moderator_id")
+    @JoinColumn(name = "new_moderator_id", nullable = false)
     private User newModerator;
 
     @Column(name = "final_decision")
     @Enumerated(EnumType.STRING)
-    private Decision finalDecision;
+    private AppealDecision finalDecision;
 
     @Column(name = "final_decision_at")
     private LocalDateTime finalDecisionAt;
 
     @PrePersist
-    protected void onCreate() {
+    protected void prePersist() {
         this.createdAt = LocalDateTime.now();
     }
 }

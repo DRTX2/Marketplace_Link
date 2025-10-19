@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.exceptions.advices;
 
+import com.gpis.marketplace_link.exceptions.business.appeals.UnauthorizedAppealDecisionException;
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.*;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
@@ -47,6 +48,63 @@ public class BusinessAdvice {
     public ProblemDetail handleCannotAddReport(CannotAddReportToAppealedIncidenceException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         pd.setTitle("Cannot Add Report to Appealed Incidence");
+        return pd;
+    }
+
+    @ExceptionHandler(IncidenceAlreadyClosedException.class)
+    public ProblemDetail handleAlreadyClosed(IncidenceAlreadyClosedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Incidence Already Closed");
+        return pd;
+    }
+
+    @ExceptionHandler(IncidenceNotClaimableException.class)
+    public ProblemDetail handleNotClaimable(IncidenceNotClaimableException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Incidence Not Claimable");
+        return pd;
+    }
+
+    @ExceptionHandler(SystemActionAlreadyTakenException.class)
+    public ProblemDetail handleSystemActionAlreadyTaken(SystemActionAlreadyTakenException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("System Action Already Taken");
+        return pd;
+    }
+
+    @ExceptionHandler(IncidenceAppealedException.class)
+    public ProblemDetail handleIncidenceAppealed(IncidenceAppealedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Incidence Appealed");
+        return pd;
+    }
+
+    @ExceptionHandler(IncidenceAlreadyAppealedException.class)
+    public ProblemDetail handleIncidenceAlreadyAppealed(IncidenceAlreadyAppealedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Incidence Already Appealed");
+        return pd;
+    }
+
+    @ExceptionHandler(IncidenceNotUnderReviewException.class)
+    public ProblemDetail handleIncidenceNotUnderReview(IncidenceNotUnderReviewException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Incidence Not Under Review");
+        return pd;
+    }
+
+    @ExceptionHandler(IncidenceNotBelongToModeratorException.class)
+    public ProblemDetail handleIncidenceNotBelongToModerator(IncidenceNotBelongToModeratorException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setTitle("Incidence Not Belong To Moderator");
+        return pd;
+    }
+
+    // --- apelaciones ---
+    @ExceptionHandler(UnauthorizedAppealDecisionException.class)
+    public ProblemDetail handleUnauthorizedAppealDecision(UnauthorizedAppealDecisionException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setTitle("Unauthorized Appeal Decision");
         return pd;
     }
 
@@ -106,13 +164,6 @@ public class BusinessAdvice {
     public ProblemDetail handleReporterNotFound(ReporterNotFoundException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         pd.setTitle("Reporter Not Found");
-        return pd;
-    }
-
-    @ExceptionHandler(SystemActionAlreadyTakenException.class)
-    public ProblemDetail handleSystemActionAlreadyTaken(SystemActionAlreadyTakenException ex) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        pd.setTitle("System Action Already Taken");
         return pd;
     }
 }

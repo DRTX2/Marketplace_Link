@@ -1,6 +1,6 @@
 package com.gpis.marketplace_link.entities;
 
-import com.gpis.marketplace_link.enums.Decision;
+import com.gpis.marketplace_link.enums.IncidenceDecision;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -43,7 +43,7 @@ public class Incidence {
     private String moderatorComment; // por default es null
 
     @Enumerated(EnumType.STRING)
-    private Decision decision; // por default es null
+    private IncidenceDecision decision; // por default es null
 
     @OneToMany(mappedBy = "incidence", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Report> reports;
@@ -52,7 +52,9 @@ public class Incidence {
     public void prePersist() {
         createdAt = LocalDateTime.now();
         lastReportAt = LocalDateTime.now();
-        status = IncidenceStatus.OPEN;
+        if (status == null) {
+            status = IncidenceStatus.OPEN;
+        }
         autoclosed = false;
     }
 }

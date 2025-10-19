@@ -1,7 +1,6 @@
 package com.gpis.marketplace_link.enums;
 
-public enum Decision {
-    ACCEPTED,
+public enum IncidenceDecision {
     APPROVED,
     REJECTED
 }

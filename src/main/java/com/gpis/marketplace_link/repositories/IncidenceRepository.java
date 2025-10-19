@@ -71,7 +71,7 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
         JOIN FETCH i.publication p
         JOIN FETCH i.reports r
         JOIN FETCH r.reporter
-        WHERE i.status = com.gpis.marketplace_link.enums.IncidenceStatus.OPEN AND
+        WHERE i.status IN (com.gpis.marketplace_link.enums.IncidenceStatus.OPEN, com.gpis.marketplace_link.enums.IncidenceStatus.UNDER_REVIEW) AND
               i.moderator IS NULL AND
               i.decision IS NULL
     """)
@@ -86,9 +86,11 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     """)
     List<Incidence> findAllReviewedWithDetails(Long userId);
 
-
-
-
-
+    @Query("""
+        SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END
+        FROM Incidence i
+        WHERE i.id = :incidenceId AND i.moderator.id = :moderatorId
+    """)
+    boolean existsByIdAndModeratorId(Long incidenceId, Long moderatorId);
 
 }

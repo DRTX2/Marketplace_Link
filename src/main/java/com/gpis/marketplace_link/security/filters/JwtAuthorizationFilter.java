@@ -36,9 +36,9 @@ import static com.gpis.marketplace_link.security.config.TokenJwtConfig.*;
  *
  * Si el token es inválido o no está presente, la petición continúa sin usuario autenticado.
  */
-public class JwtValidationFilter extends BasicAuthenticationFilter {
+public class JwtAuthorizationFilter extends BasicAuthenticationFilter {
 
-    public JwtValidationFilter(AuthenticationManager authenticationManager) {
+    public JwtAuthorizationFilter(AuthenticationManager authenticationManager) {
         super(authenticationManager);
     }
 
@@ -94,7 +94,6 @@ public class JwtValidationFilter extends BasicAuthenticationFilter {
 
             SecurityContextHolder.getContext().setAuthentication(auth);
             chain.doFilter(request, response);
-
         } catch (JwtException ex) {
             SecurityContextHolder.clearContext();
             chain.doFilter(request, response);

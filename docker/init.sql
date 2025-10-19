@@ -268,6 +268,24 @@ INSERT INTO users_roles (user_id, role_id) VALUES
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- ======================
+-- Inserción de 2 moderadores adicionales
+-- ======================
+INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at)
+VALUES
+    ('0606060606', 'moderator_two', crypt('password123', gen_salt('bf',12)), 'moderator2@example.com', '0999000006', 'Moderator', 'Two', 'MALE', 'ACTIVE', NOW()),
+    ('0707070707', 'moderator_three', crypt('password123', gen_salt('bf',12)), 'moderator3@example.com', '0999000007', 'Moderator', 'Three', 'FEMALE', 'ACTIVE', NOW())
+    ON CONFLICT (username) DO NOTHING;
+
+-- ======================
+-- Asignación del rol ROLE_MODERATOR a los nuevos moderadores
+-- ======================
+INSERT INTO users_roles (user_id, role_id)
+VALUES
+    ((SELECT id FROM users WHERE username = 'moderator_two'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
+    ((SELECT id FROM users WHERE username = 'moderator_three'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR'))
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+
+-- ======================
 -- Inserción de categorías iniciales
 -- ======================
 INSERT INTO categories (name) VALUES
@@ -344,7 +362,15 @@ CREATE TABLE appeals (
                          seller_id BIGINT NOT NULL,				 -- el vendedor que hace la apelacion
                          reason TEXT NOT NULL,
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                         new_moderator_id BIGINT,				 -- para elegir el nuevo moderador se hace cálculos en el back
+                         status VARCHAR(20) CHECK (
+                             status IN (
+                                        'PENDING',          -- apelación creada, esperando asignación de nuevo moderador
+                                        'ASSIGNED',         -- nuevo moderador asignado, en revisión
+                                        'FAILED_NO_MOD',    -- no hay moderadores disponibles
+                                        'REVIEWED'          -- revisión completada (decision final tomada)
+                                 )
+                             ) DEFAULT 'PENDING',
+                         new_moderator_id BIGINT,				 -- para elegir el nuevo moderador se hace cálculos en el back (puede ser nulo si no hay moderadores)
                          final_decision VARCHAR(20) CHECK (final_decision IN ('ACCEPTED','REJECTED')),
                          final_decision_at TIMESTAMP,
 

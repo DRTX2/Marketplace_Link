@@ -5,11 +5,10 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class SimpleReportResponse {
+public class ModeratorInfo {
 
     private Long id;
-    private String reason;
-    private String comment;
-    private UserSimpleResponse reporter;
+    private String fullName;
+    private String email;
 
 }

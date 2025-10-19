@@ -1,9 +1,8 @@
 package com.gpis.marketplace_link.security.config;
 
 import com.gpis.marketplace_link.security.filters.JwtAuthenticationFilter;
-import com.gpis.marketplace_link.security.filters.JwtValidationFilter;
+import com.gpis.marketplace_link.security.filters.JwtAuthorizationFilter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -56,7 +55,7 @@ public class DevSecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/password-reset/**").permitAll()
                         .anyRequest().permitAll())
                 .addFilter(jwtAuthenticationFilter)
-                .addFilter(new JwtValidationFilter(authManager))
+                .addFilter(new JwtAuthorizationFilter(authManager))
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(management ->
