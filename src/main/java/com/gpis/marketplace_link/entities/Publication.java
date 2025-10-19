@@ -10,6 +10,7 @@ import org.locationtech.jts.geom.Point;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "publications")
@@ -21,7 +22,7 @@ public class Publication {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(unique = true, length = 20)
     private String code;
 
     @Column(nullable = false)
@@ -68,11 +69,20 @@ public class Publication {
     @JoinColumn(name = "category_id")
     private Category category;
 
-    @OneToMany(mappedBy = "publication", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "publication", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PublicationImage> images;
 
     public void setUnderReview() {
         this.status = PublicationStatus.UNDER_REVIEW;
     }
 
+    @PrePersist
+    public void prePersist() {
+        this.publicationDate = LocalDateTime.now();
+
+        String raw = UUID.randomUUID().toString().replace("-", "");
+        this.code = raw.substring(0, 20);
+        this.type = this.workingHours != null ? PublicationType.SERVICE : PublicationType.PRODUCT;
+        this.availability= PublicationAvailable.AVAILABLE;
+    }
 }

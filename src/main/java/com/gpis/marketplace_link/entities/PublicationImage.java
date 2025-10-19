@@ -15,10 +15,8 @@ public class PublicationImage {
     @Column(nullable = false)
     private String path;
 
-    @ManyToOne
-    @JoinColumn(name = "publication_id")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "publication_id", nullable = false)
     @JsonIgnore
     private Publication publication;
-
-
 }

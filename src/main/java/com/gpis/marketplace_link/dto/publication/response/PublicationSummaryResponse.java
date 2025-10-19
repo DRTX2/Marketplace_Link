@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.dto.publication.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.gpis.marketplace_link.enums.PublicationAvailable;
 import com.gpis.marketplace_link.enums.PublicationType;
 
@@ -12,6 +13,7 @@ public record PublicationSummaryResponse(
         String name,
         BigDecimal price,
         PublicationAvailable availability,
+        @JsonProperty("publication_date")
         LocalDateTime publicationDate,
         PublicationImageReponse image
 ) { }

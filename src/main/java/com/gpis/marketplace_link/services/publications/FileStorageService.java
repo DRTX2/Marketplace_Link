@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.services.publications;
 
 import com.gpis.marketplace_link.exceptions.business.publications.UploadFolderException;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -9,14 +10,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
+@Service
 public class FileStorageService {
 
     private final Path fileStorageLocation;
 
     public FileStorageService() {
         this.fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.fileStorageLocation);
+            try {
+                Files.createDirectories(this.fileStorageLocation);
         }catch (IOException ex){
             throw new UploadFolderException("Error al crear el directorio de subida de archivos",ex);
         }

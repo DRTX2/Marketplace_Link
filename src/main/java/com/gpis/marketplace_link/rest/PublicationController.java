@@ -1,11 +1,14 @@
 package com.gpis.marketplace_link.rest;
 
+import com.gpis.marketplace_link.dto.publication.request.PublicationCreateRequest;
 import com.gpis.marketplace_link.dto.publication.response.PublicationResponse;
 import com.gpis.marketplace_link.dto.publication.response.PublicationSummaryResponse;
 import com.gpis.marketplace_link.services.publications.PublicationService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,5 +51,11 @@ public class PublicationController {
 
         return ResponseEntity.ok(response);
 
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PublicationResponse> create(@Valid @ModelAttribute PublicationCreateRequest request){
+        PublicationResponse response = service.create(request);
+        return ResponseEntity.ok(response);
     }
 }
