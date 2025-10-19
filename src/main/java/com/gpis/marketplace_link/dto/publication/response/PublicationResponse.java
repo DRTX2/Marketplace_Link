@@ -1,11 +1,9 @@
 package com.gpis.marketplace_link.dto.publication.response;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.gpis.marketplace_link.entities.Category;
-import com.gpis.marketplace_link.entities.PublicationImage;
 import com.gpis.marketplace_link.enums.PublicationAvailable;
 import com.gpis.marketplace_link.enums.PublicationStatus;
-
 import com.gpis.marketplace_link.enums.PublicationType;
 
 import java.math.BigDecimal;
@@ -23,6 +21,7 @@ public record PublicationResponse(
         PublicationAvailable availability,
         PublicationStatus status,
         @JsonProperty("publication_date")
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy HH:mm")
         LocalDateTime publicationDate,
         List<PublicationImageReponse> images,
         CategoryResponse category,

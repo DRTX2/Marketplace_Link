@@ -9,6 +9,7 @@ import com.gpis.marketplace_link.entities.Publication;
 import com.gpis.marketplace_link.entities.PublicationImage;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.exceptions.business.publications.DangerousContentException;
+import com.gpis.marketplace_link.exceptions.business.publications.PublicationCanNotDeleteException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.publications.UserIsNotVendorException;
 import com.gpis.marketplace_link.mappers.PublicationMapper;
@@ -28,10 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -74,13 +74,13 @@ public class PublicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PublicationSummaryResponse> getAllByVendor(Pageable pageable, Long categoryId,Long vendorId) {
+    public Page<PublicationSummaryResponse> getAllByVendor(Pageable pageable, Long categoryId, Long vendorId) {
 
         this.validateUserAndRole(vendorId);
 
         Specification<Publication> spec =
-                        PublicationSpecifications.vendorIs(vendorId)
-                                .and( PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
+                PublicationSpecifications.vendorIs(vendorId)
+                        .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
                         .and(PublicationSpecifications.notDeleted())
                         .and(PublicationSpecifications.notSuspended())
                         .and(PublicationSpecifications.hasCategory(categoryId));
@@ -91,7 +91,6 @@ public class PublicationService {
     }
 
 
-
     public PublicationResponse getById(Long id) {
 
         Publication publication = this.validatePublication(id);
@@ -99,9 +98,6 @@ public class PublicationService {
         return mapper.toResponse(publication);
 
     }
-
-
-
 
 
     @Transactional(noRollbackFor = DangerousContentException.class)
@@ -188,7 +184,26 @@ public class PublicationService {
 
     }
 
+    public void delete(Long id) {
 
+        Publication publication = this.repository.findById(id)
+                .orElseThrow(() -> new PublicationNotFoundException(
+                        "Publicación con id " + id + " no encontrada"));
+
+        if (publication.getStatus() == PublicationStatus.UNDER_REVIEW ||
+                publication.getStatus() == PublicationStatus.BLOCKED) {
+
+            throw new PublicationCanNotDeleteException("No se puede eliminar la publicación debido a que se encuentra en revision o bloqueada");
+
+        }
+
+        publication.setDeletedAt(LocalDateTime.now());
+
+
+        this.repository.save(publication);
+
+
+    }
 
 
     public Publication validatePublication(Long id) {
