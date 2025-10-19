@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.exceptions.advices;
 
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
+import com.gpis.marketplace_link.exceptions.business.publications.InvalidImageFileException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationUnderReviewException;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
@@ -71,6 +72,13 @@ public class BusinessAdvice {
     public ProblemDetail handleDangerousDictionaryLoad(DangerousDictionaryLoadException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
         pd.setTitle("Error al cargar el diccionario de palabras peligrosas");
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidImageFileException.class)
+    public ProblemDetail handleInvalidImageFile(InvalidImageFileException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Imagen inválida");
         return pd;
     }
 
