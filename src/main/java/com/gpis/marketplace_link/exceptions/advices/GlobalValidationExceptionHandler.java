@@ -128,4 +128,14 @@ public class GlobalValidationExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(IllegalAccessError.class)
+    public ProblemDetail handleIllegalAccess(IllegalAccessError ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN,
+                ex.getMessage()
+        );
+        pd.setTitle("Illegal Access");
+        return pd;
+    }
+
 }

@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.services.incidence;
 
 import com.gpis.marketplace_link.dto.Messages;
+import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
 import com.gpis.marketplace_link.entities.*;
 import com.gpis.marketplace_link.enums.AppealStatus;
@@ -141,6 +142,7 @@ public class IncidenceServiceImp implements IncidenceService {
         User systemUser = userRepository.findByUsername(SYSTEM_USERNAME).orElseThrow(() -> new ReporterNotFoundException(Messages.USER_SYSTEM_NOT_FOUND));
 
         if (optional.isEmpty()) {
+            log.info("Entro al empty");
             Incidence incidence = new Incidence();
 
             Publication savedPublication = publicationRepository
@@ -165,6 +167,7 @@ public class IncidenceServiceImp implements IncidenceService {
 
             return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
         }
+        log.info("No entro al empty");
 
         Incidence inc = optional.get();
 
@@ -248,9 +251,8 @@ public class IncidenceServiceImp implements IncidenceService {
 
                 UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
                 userSimpleResponse.setId(reporter.getId());
-                userSimpleResponse.setGender(reporter.getGender().toString());
-                userSimpleResponse.setFirstName(reporter.getFirstName());
-                userSimpleResponse.setLastName(reporter.getLastName());
+                userSimpleResponse.setEmail(reporter.getEmail());
+                userSimpleResponse.setFullname(reporter.getFullName());
 
                 simpleResponse.setId(r.getId());
                 simpleResponse.setComment(r.getComment());
@@ -313,7 +315,7 @@ public class IncidenceServiceImp implements IncidenceService {
                 .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
 
         if (!incidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
-            throw new InvalidIncidenceStateException("La incidencia no puede ser decidida en su estado actual: " + incidence.getStatus());
+            throw new IncidenceNotUnderReviewException("No puedes tomar una decisión porque la incidencia no está en revisión. Estado actual: " + incidence.getStatus());
         }
 
         // Solo puedo hacer la deceision si la incidencia es mia (como moderador)

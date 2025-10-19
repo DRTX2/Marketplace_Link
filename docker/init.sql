@@ -246,6 +246,24 @@ INSERT INTO users_roles (user_id, role_id) VALUES
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- ======================
+-- Inserción de 2 moderadores adicionales
+-- ======================
+INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at)
+VALUES
+    ('0606060606', 'moderator_two', crypt('password123', gen_salt('bf',12)), 'moderator2@example.com', '0999000006', 'Moderator', 'Two', 'MALE', 'ACTIVE', NOW()),
+    ('0707070707', 'moderator_three', crypt('password123', gen_salt('bf',12)), 'moderator3@example.com', '0999000007', 'Moderator', 'Three', 'FEMALE', 'ACTIVE', NOW())
+    ON CONFLICT (username) DO NOTHING;
+
+-- ======================
+-- Asignación del rol ROLE_MODERATOR a los nuevos moderadores
+-- ======================
+INSERT INTO users_roles (user_id, role_id)
+VALUES
+    ((SELECT id FROM users WHERE username = 'moderator_two'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
+    ((SELECT id FROM users WHERE username = 'moderator_three'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR'))
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+
+-- ======================
 -- Inserción de categorías iniciales
 -- ======================
 INSERT INTO categories (name) VALUES

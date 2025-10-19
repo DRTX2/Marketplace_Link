@@ -9,10 +9,7 @@ import lombok.Setter;
 public class SimplePublicationResponse {
 
     private Long id;
-
     private String name;
-
     private String description;
-
     private PublicationStatus status;
 }

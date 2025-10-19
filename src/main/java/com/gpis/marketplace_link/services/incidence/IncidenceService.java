@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.services.incidence;
 
+import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
 
 import java.util.List;

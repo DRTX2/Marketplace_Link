@@ -52,7 +52,9 @@ public class Incidence {
     public void prePersist() {
         createdAt = LocalDateTime.now();
         lastReportAt = LocalDateTime.now();
-        status = IncidenceStatus.OPEN;
+        if (status == null) {
+            status = IncidenceStatus.OPEN;
+        }
         autoclosed = false;
     }
 }

@@ -20,4 +20,24 @@ public interface AppealRepository extends JpaRepository<Appeal,Long> {
     """)
     List<Appeal> findAllPendingWithModerator();
 
+    @Query(value = """
+        SELECT DISTINCT a 
+        FROM Appeal a 
+        JOIN FETCH a.incidence i
+        JOIN FETCH i.reports r 
+        JOIN FETCH i.publication p 
+        JOIN FETCH i.moderator m
+        JOIN FETCH a.newModerator nm
+        JOIN FETCH a.seller s 
+        WHERE a.newModerator.id = :userId
+    """)
+    List<Appeal> findAppealsByUserId(Long userId);
+
+    @Query("""
+        SELECT COUNT(a) > 0
+        FROM Appeal a
+        WHERE a.id = :appealId AND a.newModerator.id = :moderatorId
+    """)
+    boolean isUserAuthorizedToDecideAppeal(Long appealId, Long moderatorId);
+
 }
