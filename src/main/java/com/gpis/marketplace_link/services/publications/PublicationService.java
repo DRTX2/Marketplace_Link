@@ -205,6 +205,16 @@ public class PublicationService {
 
     }
 
+        public void suspendPublication(Long id) {
+        Publication publication = this.repository.findById(id)
+                .orElseThrow(() -> new PublicationNotFoundException(
+                        "Publicación con id " + id + " no encontrada"));
+
+        publication.setSuspended(true);
+        this.repository.save(publication);
+
+        }
+
 
     public Publication validatePublication(Long id) {
 
