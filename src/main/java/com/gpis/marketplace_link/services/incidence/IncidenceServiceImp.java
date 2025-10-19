@@ -52,6 +52,7 @@ public class IncidenceServiceImp implements IncidenceService {
     @Override
     public ReportResponse reportByUser(RequestUserReport req) {
         // Datos para o crear la incidencia o agregar el reporte a la incidencia existente.
+        Long reporterId = securityService.getCurrentUserId();
         Long publicationId = req.getPublicationId();
         List<IncidenceStatus> status = List.of(IncidenceStatus.OPEN, IncidenceStatus.UNDER_REVIEW, IncidenceStatus.APPEALED);
         Optional<Incidence> inc = incidenceRepository.findByPublicationIdAndStatusIn(publicationId, status);
@@ -64,7 +65,7 @@ public class IncidenceServiceImp implements IncidenceService {
             incidence.setPublication(savedPublication);
             Incidence savedIncidence = incidenceRepository.save(incidence);
 
-            User reporter = userRepository.findById(req.getReporterId()).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + req.getReporterId()));
+            User reporter = userRepository.findById(reporterId).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
 
             Report report =
                     Report.builder()
@@ -96,8 +97,8 @@ public class IncidenceServiceImp implements IncidenceService {
             // La incidencia esta abierta, se puede agregar el reporte.
             if (existingIncidence.getStatus().equals(IncidenceStatus.OPEN)) {
                 User reporter = userRepository
-                                        .findById(req.getReporterId())
-                                        .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + req.getReporterId()));
+                                        .findById(reporterId)
+                                        .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
 
                 Report report =
                         Report.builder()
