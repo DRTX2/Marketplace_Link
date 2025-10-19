@@ -85,4 +85,10 @@ public class Publication {
         this.type = this.workingHours != null ? PublicationType.SERVICE : PublicationType.PRODUCT;
         this.availability= PublicationAvailable.AVAILABLE;
     }
+
+    @PreUpdate
+    public void preUpdate()
+    {
+        this.type = this.workingHours != null ? PublicationType.SERVICE : PublicationType.PRODUCT;
+    }
 }

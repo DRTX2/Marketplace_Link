@@ -79,6 +79,13 @@ public class BusinessAdvice {
         return pd;
     }
 
+    @ExceptionHandler(UserIsNotVendorException.class)
+    public ProblemDetail handleUserIsNotVendor(UserIsNotVendorException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Usuario no permitido");
+        return pd;
+    }
+
     @ExceptionHandler(InvalidImageFileException.class)
     public ProblemDetail handleInvalidImageFile(InvalidImageFileException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());

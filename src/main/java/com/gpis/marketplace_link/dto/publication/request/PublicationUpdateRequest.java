@@ -1,6 +1,5 @@
 package com.gpis.marketplace_link.dto.publication.request;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.gpis.marketplace_link.entities.Category;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.enums.PublicationAvailable;
@@ -12,7 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.util.List;
 
-public record PublicationCreateRequest(
+public record PublicationUpdateRequest(
 
         @NotBlank(message = "El título es obligatorio")
         @Size(min = 5, max = 100, message = "El título debe tener entre 5 y 100 caracteres")
@@ -35,6 +34,9 @@ public record PublicationCreateRequest(
         @DecimalMin(value = "-180.0", message = "Longitud mínima -180")
         @DecimalMax(value = "180.0", message = "Longitud máxima 180")
         Double longitude,
+
+        @NotNull(message = "La disponibilidad es obligatoria")
+        PublicationAvailable availability,
 
         String workingHours,
         @Exists(entity = Category.class, message = "La categoría no existe")

@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.mappers;
 
 import com.gpis.marketplace_link.dto.publication.request.PublicationCreateRequest;
+import com.gpis.marketplace_link.dto.publication.request.PublicationUpdateRequest;
 import com.gpis.marketplace_link.dto.publication.response.PublicationImageReponse;
 import com.gpis.marketplace_link.dto.publication.response.PublicationResponse;
 import com.gpis.marketplace_link.dto.publication.response.PublicationSummaryResponse;
@@ -31,6 +32,12 @@ public interface PublicationMapper {
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "location", expression = "java(toPoint(request.latitude(), request.longitude()))")
     Publication toEntity(PublicationCreateRequest request);
+
+    @Mapping(target = "vendor", ignore = true)
+    @Mapping(target = "category", ignore = true)
+    @Mapping(target = "images", ignore = true)
+    @Mapping(target = "location", expression = "java(toPoint(request.latitude(), request.longitude()))")
+    void updateFromRequest(@MappingTarget Publication publication, PublicationUpdateRequest request);
 
 
     default PublicationImageReponse toPublicationImageResponse(PublicationImage image) {

@@ -48,6 +48,11 @@ public class FileStorageService {
         return this.fileStorageLocation.resolve(fileName);
     }
 
+    public   boolean fileExists(String fileName){
+        Path filePath = getFilePath(fileName);
+        return Files.exists(filePath);
+    }
+
 
     public void deleteFile(String fileName){
         try{
