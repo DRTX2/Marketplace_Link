@@ -86,7 +86,6 @@ public class PublicationService {
                 PublicationSpecifications.vendorIs(vendorId)
                         .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
                         .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.notSuspended())
                         .and(PublicationSpecifications.hasCategory(categoryId));
 
         Page<Publication> publications = repository.findAll(spec, pageable);
