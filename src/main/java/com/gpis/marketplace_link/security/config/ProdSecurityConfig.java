@@ -49,7 +49,13 @@ public class ProdSecurityConfig {
     };
 
     private static final String[] WHITELIST_GET = {
-            "/api/auth/verify-email"
+            "/api/auth/verify-email",
+            "/uploads/**",
+            "/*.jpg",
+            "/*.jpeg",
+            "/*.png",
+            "/*.gif",
+            "/*.webp"
     };
 
     @Bean
