@@ -21,6 +21,7 @@ import com.gpis.marketplace_link.services.incidence.IncidenceServiceImp;
 import com.gpis.marketplace_link.services.publications.valueObjects.DangerousWordMatch;
 import com.gpis.marketplace_link.specifications.PublicationSpecifications;
 import com.gpis.marketplace_link.enums.PublicationStatus;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -32,6 +33,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +48,7 @@ public class PublicationService {
     private final CategoryRepository categoryRepository;
     private final ImageValidationService imageValidationService;
     private final IncidenceService incidenceService;
+    private static final Logger logger = LoggerFactory.getLogger(PublicationService.class);
 
     public PublicationService(PublicationRepository repository, PublicationMapper mapper, FileStorageService fileStorageService, UserRepository userRepository, CategoryRepository categoryRepository, ImageValidationService imageValidationService, IncidenceServiceImp incidenceServiceImp, DangerousContentDetectedService dangerousContentDetectedService) {
         this.repository = repository;
@@ -205,15 +209,24 @@ public class PublicationService {
 
     }
 
-        public void suspendPublication(Long id) {
-        Publication publication = this.repository.findById(id)
-                .orElseThrow(() -> new PublicationNotFoundException(
-                        "Publicación con id " + id + " no encontrada"));
 
-        publication.setSuspended(true);
-        this.repository.save(publication);
+    public void suspendedPublicationsOlderThan(Integer limit) {
 
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Publication> publications = this.repository.findAll();
+
+        List<Publication> toSuspend = new ArrayList<>();
+        for (Publication pub : publications) {
+            if (pub.getPublicationDate().plusDays(limit).isBefore(now) && !pub.isSuspended()) {
+                pub.setSuspended(true);
+                toSuspend.add(pub);
+                logger.info("Se ha suspendido la publicación con id: {}", pub.getId());
+            }
         }
+        repository.saveAll(toSuspend);
+
+    }
 
 
     public Publication validatePublication(Long id) {
