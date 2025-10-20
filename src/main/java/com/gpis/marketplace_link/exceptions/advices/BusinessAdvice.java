@@ -151,6 +151,12 @@ public class BusinessAdvice {
         return pd;
     }
 
+    @ExceptionHandler(PublicationCanNotDeleteException.class)
+    public ProblemDetail handlePublicationCanNotDelete(PublicationCanNotDeleteException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("No se permite eliminar la publicación");
+        return pd;
+    }
 
     // --- usuarios ---
     @ExceptionHandler(ModeratorNotFoundException.class)

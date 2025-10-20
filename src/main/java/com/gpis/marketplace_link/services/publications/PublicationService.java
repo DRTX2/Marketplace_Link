@@ -9,6 +9,7 @@ import com.gpis.marketplace_link.entities.Publication;
 import com.gpis.marketplace_link.entities.PublicationImage;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.exceptions.business.publications.DangerousContentException;
+import com.gpis.marketplace_link.exceptions.business.publications.PublicationCanNotDeleteException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.publications.UserIsNotVendorException;
 import com.gpis.marketplace_link.mappers.PublicationMapper;
@@ -20,6 +21,7 @@ import com.gpis.marketplace_link.services.incidence.IncidenceServiceImp;
 import com.gpis.marketplace_link.services.publications.valueObjects.DangerousWordMatch;
 import com.gpis.marketplace_link.specifications.PublicationSpecifications;
 import com.gpis.marketplace_link.enums.PublicationStatus;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -28,10 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +48,7 @@ public class PublicationService {
     private final CategoryRepository categoryRepository;
     private final ImageValidationService imageValidationService;
     private final IncidenceService incidenceService;
+    private static final Logger logger = LoggerFactory.getLogger(PublicationService.class);
 
     public PublicationService(PublicationRepository repository, PublicationMapper mapper, FileStorageService fileStorageService, UserRepository userRepository, CategoryRepository categoryRepository, ImageValidationService imageValidationService, IncidenceServiceImp incidenceServiceImp, DangerousContentDetectedService dangerousContentDetectedService) {
         this.repository = repository;
@@ -73,6 +77,23 @@ public class PublicationService {
         return publications.map(mapper::toSummaryResponse);
     }
 
+    @Transactional(readOnly = true)
+    public Page<PublicationSummaryResponse> getAllByVendor(Pageable pageable, Long categoryId, Long vendorId) {
+
+        this.validateUserAndRole(vendorId);
+
+        Specification<Publication> spec =
+                PublicationSpecifications.vendorIs(vendorId)
+                        .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
+                        .and(PublicationSpecifications.notDeleted())
+                        .and(PublicationSpecifications.hasCategory(categoryId));
+
+        Page<Publication> publications = repository.findAll(spec, pageable);
+
+        return publications.map(mapper::toSummaryResponse);
+    }
+
+
     public PublicationResponse getById(Long id) {
 
         Publication publication = this.validatePublication(id);
@@ -81,10 +102,11 @@ public class PublicationService {
 
     }
 
+
     @Transactional(noRollbackFor = DangerousContentException.class)
     public PublicationResponse create(PublicationCreateRequest request) {
 
-        validateUserRole(request.vendorId());
+        validateUserAndRole(request.vendorId());
 
         imageValidationService.validateImages(request.images());
 
@@ -121,7 +143,7 @@ public class PublicationService {
     public PublicationResponse update(Long id, PublicationUpdateRequest request) {
 
 
-        validateUserRole(request.vendorId());
+        validateUserAndRole(request.vendorId());
 
         Publication publication = this.validatePublication(id);
 
@@ -162,6 +184,46 @@ public class PublicationService {
         Publication saved = repository.save(publication);
 
         return mapper.toResponse(saved);
+
+    }
+
+    public void delete(Long id) {
+
+        Publication publication = this.repository.findById(id)
+                .orElseThrow(() -> new PublicationNotFoundException(
+                        "Publicación con id " + id + " no encontrada"));
+
+        if (publication.getStatus() == PublicationStatus.UNDER_REVIEW ||
+                publication.getStatus() == PublicationStatus.BLOCKED) {
+
+            throw new PublicationCanNotDeleteException("No se puede eliminar la publicación debido a que se encuentra en revision o bloqueada");
+
+        }
+
+        publication.setDeletedAt(LocalDateTime.now());
+
+
+        this.repository.save(publication);
+
+
+    }
+
+
+    public void suspendedPublicationsOlderThan(Integer limit) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Publication> publications = this.repository.findAll();
+
+        List<Publication> toSuspend = new ArrayList<>();
+        for (Publication pub : publications) {
+            if (pub.getPublicationDate().plusDays(limit).isBefore(now) && !pub.isSuspended()) {
+                pub.setSuspended(true);
+                toSuspend.add(pub);
+                logger.info("Se ha suspendido la publicación con id: {}", pub.getId());
+            }
+        }
+        repository.saveAll(toSuspend);
 
     }
 
@@ -216,7 +278,7 @@ public class PublicationService {
         incidenceService.reportBySystem(requestSystemReport);
     }
 
-    private void validateUserRole(Long id) {
+    private void validateUserAndRole(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 

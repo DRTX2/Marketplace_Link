@@ -9,11 +9,11 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.print.attribute.standard.Media;
 import java.math.BigDecimal;
 
 @RestController
@@ -37,7 +37,7 @@ public class PublicationController {
             @RequestParam(required = false) Double lon,
             @RequestParam(required = false) Double distanceKm
     ) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publicationDate"));
 
         Page<PublicationSummaryResponse> response = service.getAll(
                 pageable, categoryId, minPrice, maxPrice, lat, lon, distanceKm
@@ -55,6 +55,21 @@ public class PublicationController {
 
     }
 
+    @GetMapping("/by-vendor")
+    public ResponseEntity<Page<PublicationSummaryResponse>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Long categoryId,
+          @RequestParam Long vendorId
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publicationDate"));
+
+        Page<PublicationSummaryResponse> response = service.getAllByVendor(
+                pageable,categoryId,vendorId
+        );
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PublicationResponse> create(@Valid @ModelAttribute PublicationCreateRequest request){
         PublicationResponse response = service.create(request);
@@ -65,5 +80,11 @@ public class PublicationController {
     public ResponseEntity<PublicationResponse> update(@PathVariable Long id, @Valid @ModelAttribute PublicationUpdateRequest request){
         PublicationResponse response = service.update(id,request);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id){
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

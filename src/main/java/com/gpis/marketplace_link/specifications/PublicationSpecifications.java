@@ -12,6 +12,11 @@ public class PublicationSpecifications {
         return (root, query, builder) -> builder.equal(root.get("id"), id);
     }
 
+    public static Specification<Publication> vendorIs(Long vendorId) {
+        return (root, query, builder) ->
+                vendorId == null ? null : builder.equal(root.get("vendor").get("id"), vendorId);
+    }
+
     public static Specification<Publication> statusIs(String status) {
         return (root, query, builder) ->
                 status == null ? null : builder.equal(root.get("status"), status);
