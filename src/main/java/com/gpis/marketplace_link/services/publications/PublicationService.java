@@ -62,13 +62,13 @@ public class PublicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PublicationSummaryResponse> getAll(Pageable pageable, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice, Double lat, Double lon, Double distanceKm) {
+    public Page<PublicationSummaryResponse> getAll(Pageable pageable, List<Long> categoryIds, BigDecimal minPrice, BigDecimal maxPrice, Double lat, Double lon, Double distanceKm) {
 
         Specification<Publication> spec =
                 PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue())
                         .and(PublicationSpecifications.notDeleted())
                         .and(PublicationSpecifications.notSuspended())
-                        .and(PublicationSpecifications.hasCategory(categoryId))
+                        .and(PublicationSpecifications.hasAnyCategory(categoryIds))
                         .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
                         .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm));
 
@@ -78,7 +78,7 @@ public class PublicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PublicationSummaryResponse> getAllByVendor(Pageable pageable, Long categoryId, Long vendorId) {
+    public Page<PublicationSummaryResponse> getAllByVendor(Pageable pageable, List<Long> categoryIds, Long vendorId) {
 
         this.validateUserAndRole(vendorId);
 
@@ -86,7 +86,7 @@ public class PublicationService {
                 PublicationSpecifications.vendorIs(vendorId)
                         .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
                         .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.hasCategory(categoryId));
+                        .and(PublicationSpecifications.hasAnyCategory(categoryIds));
 
         Page<Publication> publications = repository.findAll(spec, pageable);
 

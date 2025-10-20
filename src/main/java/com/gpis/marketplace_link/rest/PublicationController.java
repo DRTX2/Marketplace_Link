@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/publications")
@@ -30,7 +31,7 @@ public class PublicationController {
     public ResponseEntity<Page<PublicationSummaryResponse>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) List<Long> categoryIds,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Double lat,
@@ -40,7 +41,7 @@ public class PublicationController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publicationDate"));
 
         Page<PublicationSummaryResponse> response = service.getAll(
-                pageable, categoryId, minPrice, maxPrice, lat, lon, distanceKm
+                pageable, categoryIds, minPrice, maxPrice, lat, lon, distanceKm
         );
 
         return ResponseEntity.ok(response);
@@ -59,13 +60,13 @@ public class PublicationController {
     public ResponseEntity<Page<PublicationSummaryResponse>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) List<Long> categoryIds,
           @RequestParam Long vendorId
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publicationDate"));
 
         Page<PublicationSummaryResponse> response = service.getAllByVendor(
-                pageable,categoryId,vendorId
+                pageable,categoryIds,vendorId
         );
         return ResponseEntity.ok(response);
     }
