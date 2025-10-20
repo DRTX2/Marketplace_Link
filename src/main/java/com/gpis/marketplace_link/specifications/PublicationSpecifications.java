@@ -4,6 +4,7 @@ import com.gpis.marketplace_link.entities.Publication;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Locale;
 
 public class PublicationSpecifications {
@@ -33,11 +34,13 @@ public class PublicationSpecifications {
                 builder.isFalse(root.get("suspended"));
     }
 
-    public static Specification<Publication> hasCategory(Long categoryId) {
-
-        return (root, query, builder) ->
-                categoryId == null ? null : builder.equal(root.get("category").get("id"), categoryId);
-
+    public static Specification<Publication> hasAnyCategory(List<Long> categoryIds) {
+        return (root, query, builder) -> {
+            if (categoryIds == null || categoryIds.isEmpty()) {
+                return null;
+            }
+            return root.get("category").get("id").in(categoryIds);
+        };
     }
 
     public static Specification<Publication> priceBetween(BigDecimal min, BigDecimal max) {
