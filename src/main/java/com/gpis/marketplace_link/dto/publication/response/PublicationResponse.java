@@ -20,7 +20,6 @@ public record PublicationResponse(
         BigDecimal price,
         PublicationAvailable availability,
         PublicationStatus status,
-        @JsonProperty("publication_date")
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy HH:mm")
         LocalDateTime publicationDate,
         List<PublicationImageReponse> images,

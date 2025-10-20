@@ -14,7 +14,6 @@ public record PublicationSummaryResponse(
         String name,
         BigDecimal price,
         PublicationAvailable availability,
-        @JsonProperty("publication_date")
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy HH:mm")
         LocalDateTime publicationDate,
         PublicationImageReponse image
