@@ -316,12 +316,12 @@ VALUES
 -- Inserción de imágenes de ejemplo para publicaciones
 -- ======================
 INSERT INTO publication_images (publication_id, path) VALUES
-                                                          (1, 'images/smartphone1.jpg'),
-                                                          (1, 'images/smartphone2.jpg'),
-                                                          (2, 'images/sofa1.jpg'),
-                                                          (3, 'images/yoga1.jpg'),
-                                                          (4, 'images/bicicleta1.jpg'),
-                                                          (5, 'images/pc_repair1.jpg');
+                                                          (1, 'default.jpg'),
+                                                          (1, 'default.jpg'),
+                                                          (2, 'default.jpg'),
+                                                          (3, 'default.jpg'),
+                                                          (4, 'default.jpg'),
+                                                          (5, 'default.jpg');
 
 --- Para el flujo de moderación
 
