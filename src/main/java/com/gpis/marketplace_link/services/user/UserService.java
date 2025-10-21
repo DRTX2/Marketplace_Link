@@ -4,6 +4,9 @@ import com.gpis.marketplace_link.dto.user.ChangePasswordRequest;
 import com.gpis.marketplace_link.entities.Role;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.exceptions.business.users.AccountBlockedException;
+import com.gpis.marketplace_link.exceptions.business.users.AccountInactiveException;
+import com.gpis.marketplace_link.exceptions.business.users.AccountPendingVerificationException;
 import com.gpis.marketplace_link.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,14 +57,29 @@ public class UserService {
                 notFoundWith(" con email " + email));
     }
 
+    @Transactional(readOnly = true)
+    public User getProfileEnforcingStatus(Long userId) {
+        var user = userRepo.findById(userId).orElseThrow(this::notFound);
+        var st = user.getAccountStatus();
+
+        if (st == AccountStatus.ACTIVE) return user;
+        if (st == AccountStatus.BLOCKED) throw new AccountBlockedException();
+        if (st == AccountStatus.PENDING_VERIFICATION) throw new AccountPendingVerificationException();
+
+        throw new AccountInactiveException();
+    }
+
     @Transactional
     public User register(User user, String defaultRole) {
         Set<Role> roles = (user.getRoles() == null || user.getRoles().isEmpty())
                 ? roleService.resolveWithDefault(user.getRoles(), defaultRole)
                 : roleService.resolveOrThrow(user.getRoles());
+
         user.setRoles(roles);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+
         if (user.getAccountStatus() == null) user.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
+
         User savedUser = userRepo.save(user);
         emailVerificationService.sendVerificationEmail(savedUser);
         return savedUser;
@@ -77,12 +95,16 @@ public class UserService {
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest req) {
         var user = userRepo.findById(userId).orElseThrow(this::notFound);
+
         if (!passwordEncoder.matches(req.currentPassword(), user.getPassword()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, MSG_INVALID_CREDS);
+
         if (!req.newPassword().equals(req.confirmNewPassword()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_PASSWORDS_MISMATCH);
+
         if (passwordEncoder.matches(req.newPassword(), user.getPassword()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_PASSWORD_SAME);
+
         user.setPassword(passwordEncoder.encode(req.newPassword()));
         userRepo.save(user);
     }
@@ -90,8 +112,10 @@ public class UserService {
     @Transactional
     public void resetPassword(Long userId, String newPassword) {
         var user = userRepo.findById(userId).orElseThrow(this::notFound);
+
         if (passwordEncoder.matches(newPassword, user.getPassword()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_PASSWORD_SAME);
+
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepo.save(user);
     }
