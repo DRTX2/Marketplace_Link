@@ -6,6 +6,8 @@ import com.gpis.marketplace_link.exceptions.business.publications.*;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.users.UserNotFoundException;
+import com.gpis.marketplace_link.exceptions.business.users.*;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -194,4 +196,33 @@ public class BusinessAdvice {
         pd.setTitle("Reporter Not Found");
         return pd;
     }
+
+    // --- usuarios (estado de cuenta) ---
+    @ExceptionHandler(AccountBlockedException.class)
+    public ProblemDetail handleAccountBlocked(AccountBlockedException ex, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setTitle("Cuenta bloqueada");
+        pd.setType(java.net.URI.create("https://example.com/errors/account-blocked"));
+        pd.setInstance(java.net.URI.create(req.getRequestURI()));
+        return pd;
+    }
+
+    @ExceptionHandler(AccountPendingVerificationException.class)
+    public ProblemDetail handleAccountPending(AccountPendingVerificationException ex, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setTitle("Cuenta pendiente de verificación");
+        pd.setType(java.net.URI.create("https://example.com/errors/account-pending"));
+        pd.setInstance(java.net.URI.create(req.getRequestURI()));
+        return pd;
+    }
+
+    @ExceptionHandler(AccountInactiveException.class)
+    public ProblemDetail handleAccountInactive(AccountInactiveException ex, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setTitle("Cuenta inactiva");
+        pd.setType(java.net.URI.create("https://example.com/errors/account-inactive"));
+        pd.setInstance(java.net.URI.create(req.getRequestURI()));
+        return pd;
+    }
+
 }

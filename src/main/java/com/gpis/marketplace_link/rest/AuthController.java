@@ -26,7 +26,10 @@ public class AuthController {
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getProfile(Authentication authentication) {
         String username = authentication.getName();
+
         User user = userService.findByUsername(username);
+        user = userService.getProfileEnforcingStatus(user.getId());
+
         return ResponseEntity.ok(userMapper.toResponse(user));
     }
 
