@@ -5,6 +5,7 @@ import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.*;
 import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundException;
 import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundException;
+import com.gpis.marketplace_link.exceptions.business.users.UserNotFoundException;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -158,7 +159,28 @@ public class BusinessAdvice {
         return pd;
     }
 
+    @ExceptionHandler(FavoriteAlreadyExistsException.class)
+    public ProblemDetail handleFavoriteAlreadyExists(FavoriteAlreadyExistsException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Favorito ya existe");
+        return pd;
+    }
+
+    @ExceptionHandler(FavoriteNotFoundException.class)
+    public ProblemDetail handleFavoriteNotFound(FavoriteNotFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        pd.setTitle("Favorito no encontrado");
+        return pd;
+    }
+
     // --- usuarios ---
+    @ExceptionHandler(UserNotFoundException.class)
+    public ProblemDetail handleUserNotFound(UserNotFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        pd.setTitle("Usuario no encontrado");
+        return pd;
+    }
+
     @ExceptionHandler(ModeratorNotFoundException.class)
     public ProblemDetail handleModeratorNotFound(ModeratorNotFoundException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());

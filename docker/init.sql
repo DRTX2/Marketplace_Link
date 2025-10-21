@@ -165,6 +165,30 @@ CREATE TABLE IF NOT EXISTS publication_images (
     );
 
 -- ======================
+-- Tabla: favorite_publications
+-- ======================
+CREATE TABLE IF NOT EXISTS favorite_publications (
+                                                     id BIGSERIAL PRIMARY KEY,
+                                                     user_id BIGINT NOT NULL,
+                                                     publication_id BIGINT NOT NULL,
+                                                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                                     CONSTRAINT uk_user_publication UNIQUE (user_id, publication_id),
+
+    CONSTRAINT fk_favorite_publications_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    CONSTRAINT fk_favorite_publications_publication
+    FOREIGN KEY (publication_id)
+    REFERENCES publications(id)
+    ON DELETE CASCADE
+    );
+
+
+
+-- ======================
 -- Inserción de datos de prueba
 -- ======================
 
@@ -322,6 +346,17 @@ INSERT INTO publication_images (publication_id, path) VALUES
                                                           (3, 'default.jpg'),
                                                           (4, 'default.jpg'),
                                                           (5, 'default.jpg');
+-- ======================
+-- Inserción de favoritos de prueba
+-- ======================
+INSERT INTO favorite_publications (user_id, publication_id, created_at)
+VALUES
+    ((SELECT id FROM users WHERE username = 'buyer_user'), 1, NOW()),
+    ((SELECT id FROM users WHERE username = 'buyer_user'), 2, NOW()),
+    ((SELECT id FROM users WHERE username = 'seller_one'), 3, NOW()),
+    ((SELECT id FROM users WHERE username = 'moderator_user'), 1, NOW())
+    ON CONFLICT (user_id, publication_id) DO NOTHING;
+
 
 --- Para el flujo de moderación
 
