@@ -22,6 +22,8 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface PublicationMapper {
 
+    @Mapping(target = "latitude", expression = "java(extractLatitude(publication))")
+    @Mapping(target = "longitude", expression = "java(extractLongitude(publication))")
     PublicationResponse toResponse(Publication publication);
 
     @Mapping(target = "image", expression = "java(firstImage(publication))")
@@ -70,5 +72,15 @@ public interface PublicationMapper {
         if (publication != null && publication.getImages() == null) {
             publication.setImages(new ArrayList<>());
         }
+    }
+
+    default Double extractLatitude(Publication publication) {
+        if (publication == null || publication.getLocation() == null) return null;
+        return publication.getLocation().getY();
+    }
+
+    default Double extractLongitude(Publication publication) {
+        if (publication == null || publication.getLocation() == null) return null;
+        return publication.getLocation().getX();
     }
 }
