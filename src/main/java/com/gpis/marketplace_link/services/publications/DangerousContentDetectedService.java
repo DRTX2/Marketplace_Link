@@ -30,7 +30,7 @@ public class DangerousContentDetectedService {
                 pattern = reader.lines()
                         .map(String::trim)
                         .filter(line -> !line.isEmpty())
-                        .map(word -> Pattern.compile(Pattern.quote(word), Pattern.CASE_INSENSITIVE))
+                        .map(word -> Pattern.compile("\\b" + Pattern.quote(word), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS))
                         .toList();
             }
         } catch (IOException e) {

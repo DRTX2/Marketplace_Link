@@ -1,4 +1,4 @@
-arm
+    arm
 pistol
 rifl
 revolver
