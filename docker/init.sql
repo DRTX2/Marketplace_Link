@@ -165,6 +165,30 @@ CREATE TABLE IF NOT EXISTS publication_images (
     );
 
 -- ======================
+-- Tabla: favorite_publications
+-- ======================
+CREATE TABLE IF NOT EXISTS favorite_publications (
+                                                     id BIGSERIAL PRIMARY KEY,
+                                                     user_id BIGINT NOT NULL,
+                                                     publication_id BIGINT NOT NULL,
+                                                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                                     CONSTRAINT uk_user_publication UNIQUE (user_id, publication_id),
+
+    CONSTRAINT fk_favorite_publications_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    CONSTRAINT fk_favorite_publications_publication
+    FOREIGN KEY (publication_id)
+    REFERENCES publications(id)
+    ON DELETE CASCADE
+    );
+
+
+
+-- ======================
 -- Inserción de datos de prueba
 -- ======================
 
@@ -236,23 +260,23 @@ INSERT INTO users (
     account_status, email_verified_at, location
 ) VALUES
       -- Parque Cevallos
-      ('0202020202', 'moderator_user', crypt('password123', gen_salt('bf',12)),
-       'moderator@example.com', '0999000002', 'Moderator', 'User', 'FEMALE',
+      ('0202020202', 'JosueG', crypt('password123', gen_salt('bf',12)),
+       'moderator@example.com', '0999000002', 'Josue', 'Garcia', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.62712, -1.24118), 4326)),
 
       -- Mall de los Andes
-      ('0303030303', 'seller_one', crypt('password123', gen_salt('bf',12)),
-       'seller1@example.com', '0999000003', 'Seller', 'One', 'MALE',
+      ('0303030303', 'JoelB', crypt('password123', gen_salt('bf',12)),
+       'seller1@example.com', '0999000003', 'Joel', 'Bonilla', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.62823, -1.26510), 4326)),
 
       -- UTA (Campus Huachi)
-      ('0404040404', 'seller_two', crypt('password123', gen_salt('bf',12)),
-       'seller2@example.com', '0999000004', 'Seller', 'Two', 'FEMALE',
+      ('0404040404', 'DavidM', crypt('password123', gen_salt('bf',12)),
+       'seller2@example.com', '0999000004', 'David', 'Manjarres', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.62411, -1.26901), 4326)),
 
       -- Terminal Terrestre Ambato
-      ('0505050505', 'buyer_user', crypt('password123', gen_salt('bf',12)),
-       'buyer@example.com', '0999000005', 'Buyer', 'User', 'MALE',
+      ('0505050505', 'DavidB', crypt('password123', gen_salt('bf',12)),
+       'buyer@example.com', '0999000005', 'David', 'Barragan', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.61652, -1.23603), 4326))
 ON CONFLICT (username) DO NOTHING;
 
@@ -260,11 +284,11 @@ ON CONFLICT (username) DO NOTHING;
 -- Asignación de roles fijos
 -- =====================================
 INSERT INTO users_roles (user_id, role_id) VALUES
-                                               ((SELECT id FROM users WHERE username = 'admin'),          (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')),
-                                               ((SELECT id FROM users WHERE username = 'moderator_user'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
-                                               ((SELECT id FROM users WHERE username = 'seller_one'),     (SELECT id FROM roles WHERE name = 'ROLE_SELLER')),
-                                               ((SELECT id FROM users WHERE username = 'seller_two'),     (SELECT id FROM roles WHERE name = 'ROLE_SELLER')),
-                                               ((SELECT id FROM users WHERE username = 'buyer_user'),     (SELECT id FROM roles WHERE name = 'ROLE_BUYER'))
+    ((SELECT id FROM users WHERE username = 'admin'),   (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')),
+    ((SELECT id FROM users WHERE username = 'JosueG'),  (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
+    ((SELECT id FROM users WHERE username = 'JoelB'),   (SELECT id FROM roles WHERE name = 'ROLE_SELLER')),
+    ((SELECT id FROM users WHERE username = 'DavidM'),  (SELECT id FROM roles WHERE name = 'ROLE_SELLER')),
+    ((SELECT id FROM users WHERE username = 'DavidB'),  (SELECT id FROM roles WHERE name = 'ROLE_BUYER'))
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- ======================
@@ -306,22 +330,33 @@ INSERT INTO categories (name) VALUES
 -- NOTA: Usando coordenadas ficticias
 INSERT INTO publications (code, type, name, description, price, availability, status, location, category_id, vendor_id, working_hours)
 VALUES
-    ('PRD001', 'PRODUCT', 'Smartphone X', 'Último modelo de smartphone con 128GB', 699.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(102.00303584077051, 33.10074754335619), 4326), 1, 3, NULL),
-    ('PRD002', 'PRODUCT', 'Sofá 3 Plazas', 'Sofá moderno de tela gris', 499.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 2, 3, NULL),
-    ('SRV001', 'SERVICE', 'Clases de Yoga', 'Instructor certificado ofrece clases de yoga a domicilio', 20.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 4, 4, '08:00-12:00'),
-    ('PRD003', 'PRODUCT', 'Bicicleta Montaña', 'Bicicleta MTB 29 pulgadas', 350.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 4, 3, NULL),
-    ('SRV002', 'SERVICE', 'Reparación de PC', 'Servicio técnico de computadoras y laptops', 30.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 8, 4, '09:00-17:00');
+    ('PRD001', 'PRODUCT', 'Smartphone 10', 'Último modelo de smartphone con 128GB', 699.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(102.00303584077051, 33.10074754335619), 4326), 1, (SELECT id FROM users WHERE username = 'JoelB'), NULL),
+    ('PRD002', 'PRODUCT', 'Sofá 3 Plazas', 'Sofá moderno de tela gris', 499.99, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 2, (SELECT id FROM users WHERE username = 'JoelB'), NULL),
+    ('SRV001', 'SERVICE', 'Clases de Yoga', 'Instructor certificado ofrece clases de yoga a domicilio', 20.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 4, (SELECT id FROM users WHERE username = 'DavidM'), 'Lunes a Viernes de: 08:00-12:00'),
+    ('PRD003', 'PRODUCT', 'Bicicleta Montaña', 'Bicicleta MTB 29 pulgadas', 350.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 4, (SELECT id FROM users WHERE username = 'JoelB'), NULL),
+    ('SRV002', 'SERVICE', 'Reparación de PC', 'Servicio técnico de computadoras y laptops', 30.00, 'AVAILABLE', 'VISIBLE', ST_SetSRID(ST_MakePoint(-78.62415372809278, -1.2680301243556702), 4326), 8, (SELECT id FROM users WHERE username = 'DavidM'), 'Lunes a Viernes de: 09:00-17:00');
 
 -- ======================
 -- Inserción de imágenes de ejemplo para publicaciones
 -- ======================
 INSERT INTO publication_images (publication_id, path) VALUES
-                                                          (1, 'default.jpg'),
-                                                          (1, 'default.jpg'),
-                                                          (2, 'default.jpg'),
-                                                          (3, 'default.jpg'),
-                                                          (4, 'default.jpg'),
-                                                          (5, 'default.jpg');
+                                                          (1, 'phone.webp'),
+                                                          (2, 'sofa.jpg'),
+                                                          (3, 'yoga.jpg'),
+                                                          (4, 'bicicleta.jpg'),
+                                                          (4, 'bicicleta2.jpg'),
+                                                          (5, 'reparacion.jpg');
+-- ======================
+-- Inserción de favoritos de prueba
+-- ======================
+INSERT INTO favorite_publications (user_id, publication_id, created_at)
+VALUES
+    ((SELECT id FROM users WHERE username = 'DavidB'), 1, NOW()),
+    ((SELECT id FROM users WHERE username = 'DavidB'), 2, NOW()),
+    ((SELECT id FROM users WHERE username = 'JoelB'), 3, NOW()),
+    ((SELECT id FROM users WHERE username = 'JosueG'), 1, NOW())
+    ON CONFLICT (user_id, publication_id) DO NOTHING;
+
 
 --- Para el flujo de moderación
 
@@ -377,3 +412,4 @@ CREATE TABLE appeals (
                          FOREIGN KEY (seller_id) REFERENCES users(id),
                          FOREIGN KEY (new_moderator_id) REFERENCES users(id)
 );
+

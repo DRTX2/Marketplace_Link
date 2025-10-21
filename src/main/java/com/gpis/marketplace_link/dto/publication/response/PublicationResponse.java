@@ -19,6 +19,7 @@ public record PublicationResponse(
         BigDecimal price,
         PublicationAvailable availability,
         PublicationStatus status,
+        String workingHours,
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy HH:mm")
         LocalDateTime publicationDate,
         Double latitude,
