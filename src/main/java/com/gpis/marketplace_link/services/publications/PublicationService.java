@@ -202,8 +202,14 @@ public class PublicationService {
 
         publication.setDeletedAt(LocalDateTime.now());
 
+        List<PublicationImage> images = publication.getImages();
+
+        for (PublicationImage img : images) {
+            fileStorageService.deleteFile(img.getPath());
+        }
 
         this.repository.save(publication);
+
 
 
     }
