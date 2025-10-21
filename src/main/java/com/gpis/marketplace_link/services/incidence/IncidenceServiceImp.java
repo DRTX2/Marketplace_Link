@@ -19,6 +19,8 @@ import com.gpis.marketplace_link.security.service.SecurityService;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,15 +59,18 @@ public class IncidenceServiceImp implements IncidenceService {
         List<IncidenceStatus> status = List.of(IncidenceStatus.OPEN, IncidenceStatus.UNDER_REVIEW, IncidenceStatus.APPEALED);
         Optional<Incidence> inc = incidenceRepository.findByPublicationIdAndStatusIn(publicationId, status);
 
+        Publication pub = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
+        User reporter = userRepository.findById(reporterId).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
+
+        if (pub.getVendor().getId().equals(reporter.getId())) {
+            throw new IncidenceNotAllowedToReportOwnPublicationException("No puedes reportar tu propia publicación.");
+        }
+
         // No existe incidencia para ese producto, entonces crear la incidencia y el reporte.
         if (inc.isEmpty()) {
-            Publication savedPublication = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
-
             Incidence incidence = new Incidence();
-            incidence.setPublication(savedPublication);
+            incidence.setPublication(pub);
             Incidence savedIncidence = incidenceRepository.save(incidence);
-
-            User reporter = userRepository.findById(reporterId).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
 
             Report report =
                     Report.builder()
@@ -77,9 +82,7 @@ public class IncidenceServiceImp implements IncidenceService {
                             .build();
 
             reportRepository.save(report);
-
             return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_AUTO);
-
         } else {
             // Como existe la incidencia se considera casos como
             Incidence existingIncidence = inc.get();
@@ -96,10 +99,6 @@ public class IncidenceServiceImp implements IncidenceService {
 
             // La incidencia esta abierta, se puede agregar el reporte.
             if (existingIncidence.getStatus().equals(IncidenceStatus.OPEN)) {
-                User reporter = userRepository
-                                        .findById(reporterId)
-                                        .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
-
                 Report report =
                         Report.builder()
                                         .incidence(existingIncidence)
@@ -110,18 +109,14 @@ public class IncidenceServiceImp implements IncidenceService {
                                         .build();
 
                 existingIncidence.getReports().add(report);
-                existingIncidence.setLastReportAt(LocalDateTime.now());
                 incidenceRepository.save(existingIncidence);
             }
 
             // Si la cantidad de reportes es mayor o igual a 3, se cambia el estado de la publicacion bajo revision.
             if (existingIncidence.getReports().size() >= REPORT_THRESHOLD) {
-                Publication savedPublication = publicationRepository
-                                                        .findById(publicationId)
-                                                        .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
-                savedPublication.setUnderReview();
+                pub.setUnderReview();
                 existingIncidence.setStatus(IncidenceStatus.UNDER_REVIEW);
-                publicationRepository.save(savedPublication);
+                publicationRepository.save(pub);
                 incidenceRepository.save(existingIncidence);
             }
 
@@ -143,7 +138,6 @@ public class IncidenceServiceImp implements IncidenceService {
         User systemUser = userRepository.findByUsername(SYSTEM_USERNAME).orElseThrow(() -> new ReporterNotFoundException(Messages.USER_SYSTEM_NOT_FOUND));
 
         if (optional.isEmpty()) {
-            log.info("Entro al empty");
             Incidence incidence = new Incidence();
 
             Publication savedPublication = publicationRepository
@@ -168,7 +162,6 @@ public class IncidenceServiceImp implements IncidenceService {
 
             return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
         }
-        log.info("No entro al empty");
 
         Incidence inc = optional.get();
 
@@ -211,17 +204,17 @@ public class IncidenceServiceImp implements IncidenceService {
 
     @Transactional(readOnly = true)
     @Override
-    public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
-        List<Incidence> incidences = this.incidenceRepository.findAllUnreviewedWithDetails();
-       return generateIncidenceDetailResponse(incidences);
+    public Page<IncidenceDetailsResponse> fetchAllUnreviewed(Pageable pageable) {
+        Page<Incidence> page = this.incidenceRepository.findAllUnreviewedWithDetails(pageable);
+       return  generatePageIncidenceDetailResponse(page);
     }
 
     @Transactional(readOnly = true)
     @Override
-    public List<IncidenceDetailsResponse> fetchAllReviewed() {
+    public Page<IncidenceDetailsResponse> fetchAllReviewed(Pageable pageable) {
         Long currentUserId = securityService.getCurrentUserId();
-        List<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId);
-        return generateIncidenceDetailResponse(incidences);
+        Page<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId, pageable);
+        return generatePageIncidenceDetailResponse(incidences);
     }
 
     public List<IncidenceDetailsResponse> generateIncidenceDetailResponse(@NotNull List<Incidence> incidences) {
@@ -266,6 +259,50 @@ public class IncidenceServiceImp implements IncidenceService {
 
             return detailsResponse;
         }).toList();
+    }
+
+    public Page<IncidenceDetailsResponse> generatePageIncidenceDetailResponse(Page<Incidence> page) {
+        return page.map(i -> {
+
+            IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
+
+            detailsResponse.setId(i.getId());
+            detailsResponse.setAutoClosed(i.getAutoclosed());
+            detailsResponse.setCreatedAt(i.getCreatedAt());
+            detailsResponse.setStatus(i.getStatus());
+            detailsResponse.setIncidenceDecision(i.getDecision());
+
+            // Publicacion
+            SimplePublicationResponse publicationResponse = new SimplePublicationResponse();
+            Publication pub = i.getPublication();
+            publicationResponse.setId(pub.getId());
+            publicationResponse.setDescription(pub.getDescription());
+            publicationResponse.setStatus(pub.getStatus());
+            publicationResponse.setName(pub.getName());
+            detailsResponse.setPublication(publicationResponse);
+
+            // Reportes
+            List<SimpleReportResponse> reports = i.getReports().stream().map(r -> {
+
+                SimpleReportResponse simpleResponse = new SimpleReportResponse();
+                User reporter = r.getReporter();
+
+                UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
+                userSimpleResponse.setId(reporter.getId());
+                userSimpleResponse.setEmail(reporter.getEmail());
+                userSimpleResponse.setFullname(reporter.getFullName());
+
+                simpleResponse.setId(r.getId());
+                simpleResponse.setComment(r.getComment());
+                simpleResponse.setReason(r.getReason());
+                simpleResponse.setReporter(userSimpleResponse);
+
+                return simpleResponse;
+            }).toList();
+            detailsResponse.setReports(reports);
+
+            return detailsResponse;
+        });
     }
 
     @Transactional

@@ -25,6 +25,8 @@ import com.gpis.marketplace_link.repositories.UserRepository;
 import com.gpis.marketplace_link.security.service.SecurityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,11 +68,11 @@ public class AppealServiceImp implements AppealService {
     }
 
     @Override
-    public  List<AppealDetailsResponse>  fetchAll() {
+    public Page<AppealDetailsResponse> fetchAll(Pageable pageable) {
         Long currentUserId = securityService.getCurrentUserId();
-        List<Appeal> appeals = appealRepository.findAppealsByUserId(currentUserId);
+        Page<Appeal> appeals = appealRepository.findAppealsByUserId(currentUserId, pageable);
 
-        return appeals.stream().map((appeal -> {
+        return appeals.map((appeal -> {
             AppealDetailsResponse response = new AppealDetailsResponse();
             response.setId(appeal.getId());
             response.setStatus(appeal.getStatus());
@@ -100,7 +102,6 @@ public class AppealServiceImp implements AppealService {
             incidenceResponse.setModeratorComment(incidence.getModeratorComment());
             incidenceResponse.setStatus(incidence.getStatus());
             incidenceResponse.setCreatedAt(incidence.getCreatedAt());
-            incidenceResponse.setLastReportAt(incidence.getLastReportAt());
 
             // datos de la incidencia, moderador previo
             ModeratorInfo moderatorInfo = new ModeratorInfo();
@@ -143,8 +144,7 @@ public class AppealServiceImp implements AppealService {
             response.setIncidence(incidenceResponse);
 
             return response;
-        })).toList();
-
+        }));
     }
 
         @Transactional

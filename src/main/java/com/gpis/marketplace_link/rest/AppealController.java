@@ -6,6 +6,10 @@ import com.gpis.marketplace_link.dto.appeal.MakeAppealDecisionRequest;
 import com.gpis.marketplace_link.services.appeal.AppealService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,8 +24,12 @@ public class AppealController {
 
     @PreAuthorize("hasRole('MODERATOR')")
     @GetMapping("/my")
-    public List<AppealDetailsResponse> fetchMyAppeals() {
-        return appealService.fetchAll();
+    public Page<AppealDetailsResponse> fetchMyAppeals(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return appealService.fetchAll(pageable);
     }
 
     @PreAuthorize("hasRole('MODERATOR')")
@@ -29,5 +37,4 @@ public class AppealController {
     public AppealSimpleResponse makeAppealDecision(@Valid @RequestBody MakeAppealDecisionRequest req) {
         return appealService.makeDecision(req);
     }
-
 }

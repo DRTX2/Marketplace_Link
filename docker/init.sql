@@ -331,12 +331,10 @@ CREATE TABLE incidences (
                             publication_id BIGINT NOT NULL,
                             status VARCHAR(20) CHECK (status IN ('OPEN', 'UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            last_report_at TIMESTAMP,
                             auto_closed BOOLEAN DEFAULT FALSE,
                             moderator_id BIGINT,
                             moderator_comment TEXT,
                             decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED')),
-
 
                             FOREIGN KEY (publication_id) REFERENCES publications(id),
                             FOREIGN KEY (moderator_id) REFERENCES users(id)

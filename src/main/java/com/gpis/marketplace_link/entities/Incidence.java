@@ -29,9 +29,6 @@ public class Incidence {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt; // se setea al crear la incidencia
 
-    @Column(name = "last_report_at", nullable = false)
-    private LocalDateTime lastReportAt; // se actualiza cada vez que se agrega un reporte
-
     @Column(name = "auto_closed")
     public Boolean autoclosed; // por default es false
 
@@ -51,7 +48,6 @@ public class Incidence {
     @PrePersist()
     public void prePersist() {
         createdAt = LocalDateTime.now();
-        lastReportAt = LocalDateTime.now();
         if (status == null) {
             status = IncidenceStatus.OPEN;
         }
