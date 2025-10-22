@@ -79,3 +79,6 @@ springdoc:
 
 frontend:
   url: ${FRONTEND_URL}
+
+moderator:
+  default-password: ${MODERATOR_DEFAULT_PASSWORD}

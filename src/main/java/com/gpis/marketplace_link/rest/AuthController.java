@@ -3,6 +3,7 @@ package com.gpis.marketplace_link.rest;
 import com.gpis.marketplace_link.dto.user.UserResponse;
 import com.gpis.marketplace_link.mappers.UserMapper;
 import com.gpis.marketplace_link.entities.User;
+import com.gpis.marketplace_link.security.service.SecurityService;
 import com.gpis.marketplace_link.services.user.EmailVerificationService;
 import com.gpis.marketplace_link.services.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +23,12 @@ public class AuthController {
     private final UserService userService;
     private final UserMapper userMapper;
     private final EmailVerificationService emailVerificationService;
+    private final SecurityService securityService;
 
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getProfile(Authentication authentication) {
-        String username = authentication.getName();
-
-        User user = userService.findByUsername(username);
-        user = userService.getProfileEnforcingStatus(user.getId());
+        Long id = securityService.getCurrentUserId();
+        User user = userService.getProfileEnforcingStatus(id);
 
         return ResponseEntity.ok(userMapper.toResponse(user));
     }

@@ -1,17 +1,21 @@
 package com.gpis.marketplace_link.repositories;
 
 import com.gpis.marketplace_link.entities.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     // ====== FINDS y EXISTS actuales (solo activos por @SoftDelete) ======
 
@@ -63,91 +67,109 @@ public interface UserRepository extends JpaRepository<User, Long> {
     """)
     Optional<User> findByEmailWithRoles(String email);
 
+    /**
+     * Finds all users including soft-deleted ones, filtered by optional roles and search term.
+     *
+     * @param Q Search term (nullable)
+     * @param Roles Array of role names to filter by (nullable)
+     * @param RolesIsNull Whether the roles filter should be ignored
+     * @return List of users matching the criteria, including deleted ones
+     */
+    @Query(value = """
+    SELECT DISTINCT u.*
+    FROM users u
+    LEFT JOIN users_roles ur ON ur.user_id = u.id
+    LEFT JOIN roles r        ON r.id = ur.role_id
+    WHERE
+      ( :Q IS NULL OR
+        u.username   ILIKE :Q OR
+        u.email      ILIKE :Q OR
+        u.first_name ILIKE :Q OR
+        u.last_name  ILIKE :Q OR
+        u.phone      ILIKE :Q OR
+        u.cedula     ILIKE :Q
+      )
+      AND ( :RolesIsNull = TRUE OR r.name = ANY(CAST(:Roles AS varchar[])) )
+    """,
+            nativeQuery = true)
+    List<User> findAllIncludingDeletedNative(
+            @Param("Q") String Q,
+            @Param("Roles") String[] Roles,
+            @Param("RolesIsNull") boolean RolesIsNull
+    );
+
+    /**
+     * Finds all users including soft-deleted ones, filtered by optional roles and search term, with pagination.
+     *
+     * @param Q Search term (nullable)
+     * @param Roles Array of role names to filter by (nullable)
+     * @param RolesIsNull Whether the roles filter should be ignored
+     * @param pageable Pagination and sorting information
+     * @return Page of users matching the criteria, including deleted ones
+     */
+    @Query(value = """
+    SELECT DISTINCT u.*
+    FROM users u
+    LEFT JOIN users_roles ur ON ur.user_id = u.id
+    LEFT JOIN roles r        ON r.id = ur.role_id
+    WHERE
+      ( :Q IS NULL OR
+        u.username   ILIKE :Q OR
+        u.email      ILIKE :Q OR
+        u.first_name ILIKE :Q OR
+        u.last_name  ILIKE :Q OR
+        u.phone      ILIKE :Q OR
+        u.cedula     ILIKE :Q
+      )
+      AND ( :RolesIsNull = TRUE OR r.name = ANY(CAST(:Roles AS varchar[])) )
+    """,
+            countQuery = """
+    SELECT COUNT(DISTINCT u.id)
+    FROM users u
+    LEFT JOIN users_roles ur ON ur.user_id = u.id
+    LEFT JOIN roles r        ON r.id = ur.role_id
+    WHERE
+      ( :Q IS NULL OR
+        u.username   ILIKE :Q OR
+        u.email      ILIKE :Q OR
+        u.first_name ILIKE :Q OR
+        u.last_name  ILIKE :Q OR
+        u.phone      ILIKE :Q OR
+        u.cedula     ILIKE :Q
+      )
+      AND ( :RolesIsNull = TRUE OR r.name = ANY(CAST(:Roles AS varchar[])) )
+    """,
+            nativeQuery = true)
+    Page<User> findAllIncludingDeletedNative(
+            @Param("Q") String Q,
+            @Param("Roles") String[] Roles,
+            @Param("RolesIsNull") boolean RolesIsNull,
+            Pageable pageable
+    );
+
     Optional<User> findByUsername(String username);
-    Optional<User> findByPhone(String phone);
-    Optional<User> findByCedula(String cedula);
 
     boolean existsByEmail(String email);
-    boolean existsByUsername(String username);
-    boolean existsByPhone(String phone);
-    boolean existsByCedula(String cedula);
 
     // ====== SOFT DELETE ======
+    // ====== DESACTIVAR USUARIO ======
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query(value = "UPDATE users SET deleted = true WHERE id = :id AND deleted = false", nativeQuery = true)
-    int desactivateById(@Param("id") Long id);
+    @Query(value = """
+        UPDATE users
+        SET deleted = true, account_status = 'INACTIVE'
+        WHERE id = :id AND deleted = false
+        """, nativeQuery = true)
+    int deactivateById(@Param("id") Long id);
 
+    // ====== ACTIVAR USUARIO ======
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query(value = "UPDATE users SET deleted = false WHERE id = :id AND deleted = true", nativeQuery = true)
+    @Query(value = """
+        UPDATE users
+        SET deleted = false, account_status = 'ACTIVE'
+        WHERE id = :id AND deleted = true
+        """, nativeQuery = true)
     int activateById(@Param("id") Long id);
 
-    // ====== EXISTS (INCLUYENDO INACTIVOS) ======
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER(:email))", nativeQuery = true)
-    boolean existsIncludingInactiveByEmailNative(@Param("email") String email);
-
-    // NUEVOS: username/phone/dni (incluye inactivos)
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = LOWER(:username))", nativeQuery = true)
-    boolean existsIncludingInactiveByUsernameNative(@Param("username") String username);
-
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE phone = :phone)", nativeQuery = true)
-    boolean existsIncludingInactiveByPhoneNative(@Param("phone") String phone);
-
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE dni = :dni)", nativeQuery = true)
-    boolean existsIncludingInactiveByDniNative(@Param("dni") String dni);
-
-    // ====== EXISTS ACTIVOS EXCLUYENDO ID (para UPDATE) ======
-    @Query(value = """
-        SELECT EXISTS(
-          SELECT 1 FROM users
-          WHERE enabled = true
-            AND LOWER(email) = LOWER(:email)
-            AND id <> :excludeId
-        )
-        """, nativeQuery = true)
-    boolean existsActiveEmailExcludingId(@Param("email") String email, @Param("excludeId") Long excludeId);
-
-    @Query(value = """
-        SELECT EXISTS(
-          SELECT 1 FROM users
-          WHERE enabled = true
-            AND LOWER(username) = LOWER(:username)
-            AND id <> :excludeId
-        )
-        """, nativeQuery = true)
-    boolean existsActiveUsernameExcludingId(@Param("username") String username, @Param("excludeId") Long excludeId);
-
-    @Query(value = """
-        SELECT EXISTS(
-          SELECT 1 FROM users
-          WHERE enabled = true
-            AND phone = :phone
-            AND id <> :excludeId
-        )
-        """, nativeQuery = true)
-    boolean existsActivePhoneExcludingId(@Param("phone") String phone, @Param("excludeId") Long excludeId);
-
-    @Query(value = """
-        SELECT EXISTS(
-          SELECT 1 FROM users
-          WHERE enabled = true
-            AND dni = :dni
-            AND id <> :excludeId
-        )
-        """, nativeQuery = true)
-    boolean existsActiveDniExcludingId(@Param("dni") String dni, @Param("excludeId") Long excludeId);
-
-    // ====== EXISTS (INCLUYENDO INACTIVOS) EXCLUYENDO ID (para UPDATE sin autocolision) ======
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER(:email) AND id <> :excludeId)", nativeQuery = true)
-    boolean existsIncludingInactiveEmailExcludingId(@Param("email") String email, @Param("excludeId") Long excludeId);
-
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = LOWER(:username) AND id <> :excludeId)", nativeQuery = true)
-    boolean existsIncludingInactiveUsernameExcludingId(@Param("username") String username, @Param("excludeId") Long excludeId);
-
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE phone = :phone AND id <> :excludeId)", nativeQuery = true)
-    boolean existsIncludingInactivePhoneExcludingId(@Param("phone") String phone, @Param("excludeId") Long excludeId);
-
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM users WHERE dni = :dni AND id <> :excludeId)", nativeQuery = true)
-    boolean existsIncludingInactiveDniExcludingId(@Param("dni") String dni, @Param("excludeId") Long excludeId);
 }

@@ -42,14 +42,31 @@ public class PasswordResetService {
     }
 
     private PasswordResetToken save(Long userId) {
+        return save(userId, EXPIRATION_MINUTES);
+    }
+
+    private PasswordResetToken save(Long userId, int expirationMinutes) {
         User user = userRepository.findById(userId).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
 
         PasswordResetToken token = new PasswordResetToken();
         token.setToken(createTokenValue());
-        token.setExpiration(LocalDateTime.now().plusMinutes(EXPIRATION_MINUTES));
+        token.setExpiration(LocalDateTime.now().plusMinutes(expirationMinutes));
         token.setUser(user);
         return passwordResetTokenRepository.save(token);
+    }
+
+    /**
+     * Creates a password reset token with custom expiration time.
+     * Used for moderator account creation (24 hours) or other specific use cases.
+     *
+     * @param userId The user ID for whom to create the token
+     * @param expirationMinutes The number of minutes until the token expires
+     * @return The created PasswordResetToken
+     */
+    @Transactional
+    public PasswordResetToken createTokenWithCustomExpiration(Long userId, int expirationMinutes) {
+        return save(userId, expirationMinutes);
     }
 
     @Transactional
