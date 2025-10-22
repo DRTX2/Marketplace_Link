@@ -223,7 +223,7 @@ public class PublicationService {
 
         List<Publication> toSuspend = new ArrayList<>();
         for (Publication pub : publications) {
-            if (pub.getPublicationDate().plusDays(limit).isBefore(now) && !pub.isSuspended()) {
+            if (pub.getPublicationDate().plusSeconds(limit).isBefore(now) && !pub.isSuspended()) {
                 pub.setSuspended(true);
                 toSuspend.add(pub);
                 logger.info("Se ha suspendido la publicación con id: {}", pub.getId());

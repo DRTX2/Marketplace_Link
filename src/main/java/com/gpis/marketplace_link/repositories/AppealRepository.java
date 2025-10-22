@@ -1,6 +1,8 @@
 package com.gpis.marketplace_link.repositories;
 
 import com.gpis.marketplace_link.entities.Appeal;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -30,8 +32,12 @@ public interface AppealRepository extends JpaRepository<Appeal,Long> {
         JOIN FETCH a.newModerator nm
         JOIN FETCH a.seller s 
         WHERE a.newModerator.id = :userId
+    """, countQuery = """
+        SELECT COUNT(a) 
+        FROM Appeal a 
+        WHERE a.newModerator.id = :userId
     """)
-    List<Appeal> findAppealsByUserId(Long userId);
+    Page<Appeal> findAppealsByUserId(Long userId, Pageable pageable);
 
     @Query("""
         SELECT COUNT(a) > 0

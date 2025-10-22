@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publicación bloqueada - Opción de apelación</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9fafc;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #004aad;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            margin: 0;
+        }
+
+        .content {
+            padding: 25px 30px;
+            line-height: 1.6;
+        }
+
+        .content h2 {
+            color: #004aad;
+            margin-bottom: 10px;
+        }
+
+        .content p {
+            margin: 10px 0;
+        }
+
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #004aad;
+            color: white !important;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+        }
+
+        .button:hover {
+            background-color: #0060e6;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 13px;
+            color: #888;
+            padding: 20px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Publicación bloqueada</h1>
+    </div>
+
+    <div class="content">
+        <h2>Hola, ${fullName}</h2>
+
+        <p>Queremos informarte que tu publicación
+            <strong>${publicationName}</strong>
+            ha sido bloqueada temporalmente debido a reportes o posibles infracciones de las políticas del sistema.</p>
+
+        <p>Si consideras que esta decisión fue un error o deseas aclarar la situación,
+            puedes <strong>apelar el bloqueo de tu publicación</strong> haciendo clic en el siguiente botón.</p>
+
+        <div class="button-container">
+            <a class="button" href="${appealLink}" target="_blank">
+                Apelar publicación
+            </a>
+        </div>
+
+        <p>Una vez que envíes la apelación, nuestro equipo de moderación revisará tu caso y te notificará por correo electrónico con el resultado.</p>
+
+        <p>Gracias por ayudarnos a mantener una comunidad segura y confiable.</p>
+    </div>
+
+    <div class="footer">
+        &copy; 2025 MarketplaceLink. Todos los derechos reservados.<br>
+        Este es un mensaje automático — por favor, no respondas directamente.
+    </div>
+</div>
+
+</body>
+</html>

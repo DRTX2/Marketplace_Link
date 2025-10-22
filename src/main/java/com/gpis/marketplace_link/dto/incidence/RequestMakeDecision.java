@@ -7,12 +7,14 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 public class RequestMakeDecision {
 
     @JsonProperty("incidence_id")
-    private Long incidenceId;
+    private UUID publicIncidenceUi;
 
     @Size(min = 10, max = 255)
     @NotNull(message = "Comment must not be null")

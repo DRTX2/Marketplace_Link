@@ -5,10 +5,12 @@ import com.gpis.marketplace_link.dto.incidence.*;
 import com.gpis.marketplace_link.services.incidence.IncidenceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -23,31 +25,33 @@ public class IncidenceController {
         return incidenceService.reportByUser(req);
     }
 
-    // Solo para test
-    @PostMapping("/system-report")
-    public ReportResponse systemReport(@Valid @RequestBody RequestSystemReport req) {
-        return incidenceService.reportBySystem(req);
-    }
-
-    @PreAuthorize("hasRole('MODERATOR')")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/all")
-    public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
-        return incidenceService.fetchAllUnreviewed();
+    public Page<IncidenceDetailsResponse> fetchAllUnreviewed(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return incidenceService.fetchAllUnreviewed(pageable);
     }
 
-    @PreAuthorize("hasRole('MODERATOR')")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/my")
-    public List<IncidenceDetailsResponse> fetchMyReviewed() {
-        return incidenceService.fetchAllReviewed();
+    public Page<IncidenceDetailsResponse> fetchMyReviewed(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return incidenceService.fetchAllReviewed(pageable);
     }
 
-    @PreAuthorize("hasRole('MODERATOR')")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @PostMapping("/claim")
     public ClaimIncidenceResponse claim(@Valid @RequestBody RequestClaimIncidence req) {
         return incidenceService.claim(req);
     }
 
-    @PreAuthorize("hasRole('MODERATOR')")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @PostMapping("/decision")
     public DecisionResponse makeDecision(@Valid @RequestBody RequestMakeDecision req) {
         return incidenceService.makeDecision(req);

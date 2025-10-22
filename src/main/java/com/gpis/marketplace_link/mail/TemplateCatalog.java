@@ -15,7 +15,8 @@ public class TemplateCatalog {
             EmailType.PASSWORD_RESET,     new TemplateInfo("emails/password-reset.html",   "Restablece tu contraseña"),
             EmailType.APPOINTMENT_CONFIRMATION, new TemplateInfo("emails/booking-confirmation.html", "Cita confirmada"),
             EmailType.APPOINTMENT_UPDATE, new TemplateInfo("emails/update-booking.html", "Cita actualizada"),
-            EmailType.APPOINTMENT_REMINDER_24H, new TemplateInfo("emails/appointment_reminder_24h.html", "Recordatorio de cita")
+            EmailType.APPOINTMENT_REMINDER_24H, new TemplateInfo("emails/appointment_reminder_24h.html", "Recordatorio de cita"),
+            EmailType.PUBLICATION_BLOCKED_NOTIFICATION, new TemplateInfo("emails/publication_blocked.html", "Publicación bloqueada")
     );
 
     public TemplateInfo get(EmailType type) {

@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -19,6 +20,9 @@ public class Incidence {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "public_ui",nullable = false, unique = true, updatable = false)
+    private UUID publicId = UUID.randomUUID();
+
     @ManyToOne()
     @JoinColumn(name = "publication_id")
     private Publication publication;
@@ -28,9 +32,6 @@ public class Incidence {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt; // se setea al crear la incidencia
-
-    @Column(name = "last_report_at", nullable = false)
-    private LocalDateTime lastReportAt; // se actualiza cada vez que se agrega un reporte
 
     @Column(name = "auto_closed")
     public Boolean autoclosed; // por default es false
@@ -51,7 +52,6 @@ public class Incidence {
     @PrePersist()
     public void prePersist() {
         createdAt = LocalDateTime.now();
-        lastReportAt = LocalDateTime.now();
         if (status == null) {
             status = IncidenceStatus.OPEN;
         }

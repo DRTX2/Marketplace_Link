@@ -2,6 +2,8 @@ package com.gpis.marketplace_link.repositories;
 
 import com.gpis.marketplace_link.entities.Incidence;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Repositorio para el manejo de entidades {@link Incidence}.
@@ -35,25 +38,18 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
      */
     Optional<Incidence> findByPublicationIdAndStatusIn(Long publicationId, List<IncidenceStatus> status);
 
-    /**
-     * Cierra automáticamente las incidencias abiertas cuya última fecha de reporte sea anterior al tiempo de corte indicado.
-     *
-     * Este método se utiliza en procesos automáticos (como {@code autoclose()})
-     * para actualizar en lote el estado de incidencias inactivas. Las incidencias afectadas pasan a estado
-     * {@code RESOLVED} y se marcan como autoclosed.
-     *
-     * Por razones de rendimiento, esta operación se ejecuta directamente mediante una sentencia
-     * {@code UPDATE} y no carga las entidades en memoria.
-     *
-     * @param cutoff fecha y hora límite para determinar qué incidencias deben cerrarse.
-     * @return el número de incidencias actualizadas.
-     */
     @Modifying
-    @Query("""
-        UPDATE Incidence i
-        SET i.status = com.gpis.marketplace_link.enums.IncidenceStatus.RESOLVED, i.autoclosed = true
-        WHERE i.status = com.gpis.marketplace_link.enums.IncidenceStatus.OPEN AND i.lastReportAt < :cutoff
-    """)
+    @Query(value = """
+        UPDATE incidences i
+        SET i.status = 'RESOLVED',
+            i.auto_closed = true
+        WHERE i.status = 'OPEN'
+        AND (
+            SELECT MAX(r.created_at)
+            FROM reports r
+            WHERE r.incidence_id = i.id
+        ) < :cutoff
+    """, nativeQuery = true)
     int bulkAutoClose(@Param("cutoff") LocalDateTime cutoff);
 
     /**
@@ -66,25 +62,47 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
      *
      * @return lista de incidencias abiertas pendientes de revisión, con datos de publicación y reportes.
      */
-    @Query("""
+    @Query(
+            value = """
         SELECT DISTINCT i FROM Incidence i
         JOIN FETCH i.publication p
         JOIN FETCH i.reports r
         JOIN FETCH r.reporter
-        WHERE i.status IN (com.gpis.marketplace_link.enums.IncidenceStatus.OPEN, com.gpis.marketplace_link.enums.IncidenceStatus.UNDER_REVIEW) AND
-              i.moderator IS NULL AND
-              i.decision IS NULL
-    """)
-    List<Incidence> findAllUnreviewedWithDetails();
+        WHERE i.status IN (
+            com.gpis.marketplace_link.enums.IncidenceStatus.OPEN,
+            com.gpis.marketplace_link.enums.IncidenceStatus.UNDER_REVIEW
+        )
+        AND i.moderator IS NULL
+        AND i.decision IS NULL
+    """,
+            countQuery = """
+        SELECT COUNT(i) FROM Incidence i
+        WHERE i.status IN (
+            com.gpis.marketplace_link.enums.IncidenceStatus.OPEN,
+            com.gpis.marketplace_link.enums.IncidenceStatus.UNDER_REVIEW
+        )
+        AND i.moderator IS NULL
+        AND i.decision IS NULL
+    """
+    )
+    Page<Incidence> findAllUnreviewedWithDetails(Pageable pageable);
 
-    @Query("""
+    @Query(
+            value =
+        """
         SELECT DISTINCT i FROM Incidence i
         JOIN FETCH i.publication p
         JOIN FETCH i.reports r
         JOIN FETCH r.reporter
         WHERE i.moderator.id = :userId
-    """)
-    List<Incidence> findAllReviewedWithDetails(Long userId);
+    """,
+            countQuery = """
+        SELECT COUNT(i)
+        FROM Incidence i
+        WHERE i.moderator.id = :userId
+    """
+    )
+    Page<Incidence> findAllReviewedWithDetails(Long userId, Pageable pageable);
 
     @Query("""
         SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END
@@ -93,4 +111,6 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     """)
     boolean existsByIdAndModeratorId(Long incidenceId, Long moderatorId);
 
+    Optional<Incidence> findByPublicId(UUID publicId);
+    
 }

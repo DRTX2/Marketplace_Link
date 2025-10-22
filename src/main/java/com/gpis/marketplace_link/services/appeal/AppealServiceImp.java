@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.services.appeal;
 
+import com.gpis.marketplace_link.dto.Messages;
 import com.gpis.marketplace_link.dto.appeal.AppealDetailsResponse;
 import com.gpis.marketplace_link.dto.appeal.AppealIncidenceResponse;
 import com.gpis.marketplace_link.dto.appeal.AppealSimpleResponse;
@@ -25,6 +26,8 @@ import com.gpis.marketplace_link.repositories.UserRepository;
 import com.gpis.marketplace_link.security.service.SecurityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +59,7 @@ public class AppealServiceImp implements AppealService {
             if (newModeratorId != null) {
                 User newModUser = userRepository
                         .findById(newModeratorId)
-                        .orElseThrow(() -> new ModeratorNotFoundException("Moderator with ID " + newModeratorId + " not found"));
+                        .orElseThrow(() -> new ModeratorNotFoundException(Messages.MODERATOR_NOT_FOUND_WITH_ID + newModeratorId));
 
                 appeal.setNewModerator(newModUser);
                 appeal.setStatus(AppealStatus.ASSIGNED);
@@ -66,11 +69,11 @@ public class AppealServiceImp implements AppealService {
     }
 
     @Override
-    public  List<AppealDetailsResponse>  fetchAll() {
+    public Page<AppealDetailsResponse> fetchAll(Pageable pageable) {
         Long currentUserId = securityService.getCurrentUserId();
-        List<Appeal> appeals = appealRepository.findAppealsByUserId(currentUserId);
+        Page<Appeal> appeals = appealRepository.findAppealsByUserId(currentUserId, pageable);
 
-        return appeals.stream().map((appeal -> {
+        return appeals.map((appeal -> {
             AppealDetailsResponse response = new AppealDetailsResponse();
             response.setId(appeal.getId());
             response.setStatus(appeal.getStatus());
@@ -100,7 +103,6 @@ public class AppealServiceImp implements AppealService {
             incidenceResponse.setModeratorComment(incidence.getModeratorComment());
             incidenceResponse.setStatus(incidence.getStatus());
             incidenceResponse.setCreatedAt(incidence.getCreatedAt());
-            incidenceResponse.setLastReportAt(incidence.getLastReportAt());
 
             // datos de la incidencia, moderador previo
             ModeratorInfo moderatorInfo = new ModeratorInfo();
@@ -143,27 +145,26 @@ public class AppealServiceImp implements AppealService {
             response.setIncidence(incidenceResponse);
 
             return response;
-        })).toList();
-
+        }));
     }
 
         @Transactional
         @Override
         public AppealSimpleResponse makeDecision(MakeAppealDecisionRequest req) {
-            Appeal appeal = appealRepository.findById(req.getAppealId()).orElseThrow(() -> new AppealNotFoundException("Apelacion no encontrada con ID: " + req.getAppealId()));
+            Appeal appeal = appealRepository.findById(req.getAppealId()).orElseThrow(() -> new AppealNotFoundException(Messages.APPEAL_NOT_FOUND + req.getAppealId()));
 
             Long currentUserId = securityService.getCurrentUserId();
             boolean isAuthorized = appealRepository.isUserAuthorizedToDecideAppeal(appeal.getId(), currentUserId);
             if (!isAuthorized) {
-                throw new UnauthorizedAppealDecisionException("El usuario actual no esta autorizado para tomar una decision sobre esta apelacion.");
+                throw new UnauthorizedAppealDecisionException(Messages.APPEAL_USER_NOT_AUTHORIZED);
             }
 
             if (appeal.getFinalDecision() != null) {
-                throw new UnauthorizedAppealDecisionException("Ya se ha tomado una decision sobre esta apelacion.");
+                throw new UnauthorizedAppealDecisionException(Messages.APPEAL_ALREADY_DECIDED);
             }
 
             if (!appeal.getIncidence().getStatus().equals(IncidenceStatus.APPEALED)) {
-                throw new UnauthorizedAppealDecisionException("El estado de la incidencia no permite tomar una decision sobre la apelacion.");
+                throw new UnauthorizedAppealDecisionException(Messages.APPEAL_INVALID_INCIDENT_STATUS);
             }
 
             Publication publication = appeal.getIncidence().getPublication();
@@ -185,7 +186,7 @@ public class AppealServiceImp implements AppealService {
             response.setFinalDecision(appeal.getFinalDecision());
             response.setFinalDecisionAt(appeal.getFinalDecisionAt());
             response.setPublicationStatus(publication.getStatus());
-            response.setMessage("Decision tomada con exito sobre la apelacion.");
+            response.setMessage(Messages.APPEAL_DECISION_SUCCESS);
 
             return response;
         }
