@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Builder
 @Getter
@@ -17,7 +18,7 @@ public class AppealResponse {
     private Long appealId;
 
     @JsonProperty("incidence_id")
-    private Long incidenceId;
+    private UUID publicIncidenceUi;
     private String message;
     private AppealStatus status;
 

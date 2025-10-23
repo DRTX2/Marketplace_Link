@@ -1,27 +1,37 @@
 package com.gpis.marketplace_link.services.user;
 
 import com.gpis.marketplace_link.dto.user.ChangePasswordRequest;
+import com.gpis.marketplace_link.entities.PasswordResetToken;
 import com.gpis.marketplace_link.entities.Role;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.enums.EmailType;
 import com.gpis.marketplace_link.exceptions.business.users.AccountBlockedException;
 import com.gpis.marketplace_link.exceptions.business.users.AccountInactiveException;
 import com.gpis.marketplace_link.exceptions.business.users.AccountPendingVerificationException;
+import com.gpis.marketplace_link.mail.PasswordResetUrl;
 import com.gpis.marketplace_link.repositories.UserRepository;
-import lombok.RequiredArgsConstructor;
+import com.gpis.marketplace_link.services.NotificationService;
+import com.gpis.marketplace_link.specifications.UserSpecifications;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserService {
 
     private static final String MSG_USER_NOT_FOUND = "Usuario no encontrado";
@@ -34,6 +44,30 @@ public class UserService {
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
+    private final NotificationService notificationService;
+
+    public UserService(
+            UserRepository userRepo,
+            RoleService roleService,
+            PasswordEncoder passwordEncoder,
+            EmailVerificationService emailVerificationService,
+            @Lazy PasswordResetService passwordResetService,
+            NotificationService notificationService
+    ) {
+        this.userRepo = userRepo;
+        this.roleService = roleService;
+        this.passwordEncoder = passwordEncoder;
+        this.emailVerificationService = emailVerificationService;
+        this.passwordResetService = passwordResetService;
+        this.notificationService = notificationService;
+    }
+
+    @Value("${moderator.default-password}")
+    private String moderatorDefaultPassword;
+
+    @Value("${frontend.url}")
+    private String frontendUrl;
 
     private ResponseStatusException notFound() {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND);
@@ -46,6 +80,45 @@ public class UserService {
     public boolean existsUserByEmail(String email) { return userRepo.existsByEmail(email); }
 
     public List<User> findAll() { return userRepo.findAll(); }
+
+    /**
+     * Finds all users with optional filters.
+     * If includeDeleted is true, also returns soft-deleted users.
+     */
+    @Transactional(readOnly = true)
+    public List<User> findAllWithFilters(Boolean includeDeleted, List<String> roleNames, String searchTerm) {
+        if (Boolean.TRUE.equals(includeDeleted)) {
+            String q = (searchTerm == null || searchTerm.isBlank()) ? null : "%" + searchTerm.trim() + "%";
+            boolean rolesIsNull = (roleNames == null || roleNames.isEmpty());
+            String[] roles = rolesIsNull ? null : roleNames.toArray(String[]::new);
+            return userRepo.findAllIncludingDeletedNative(q, roles, rolesIsNull);
+        }
+
+        Specification<User> spec = UserSpecifications.filterUsers(false, roleNames, searchTerm);
+        return userRepo.findAll(spec);
+    }
+
+    /**
+     * Finds all users with optional filters and pagination.
+     * If includeDeleted is true, also returns soft-deleted users.
+     */
+    @Transactional(readOnly = true)
+    public Page<User> findAllWithFiltersPaginated(Boolean includeDeleted, List<String> roleNames, String searchTerm, Pageable pageable) {
+        if (Boolean.TRUE.equals(includeDeleted)) {
+            String q = (searchTerm == null || searchTerm.isBlank()) ? null : "%" + searchTerm.trim() + "%";
+            boolean rolesIsNull = (roleNames == null || roleNames.isEmpty());
+            String[] roles = rolesIsNull ? null : roleNames.toArray(String[]::new);
+            return userRepo.findAllIncludingDeletedNative(q, roles, rolesIsNull, pageable);
+        }
+
+        Specification<User> spec = UserSpecifications.filterUsers(false, roleNames, searchTerm);
+        return userRepo.findAll(spec, pageable);
+    }
+
+    public User findById(Long id) {
+        return userRepo.findById(id).orElseThrow(() ->
+                notFoundWith(": " + id));
+    }
 
     public User findByUsername(String username) {
         return userRepo.findByUsername(username).orElseThrow(() ->
@@ -85,6 +158,39 @@ public class UserService {
         return savedUser;
     }
 
+    /**
+     * Creates a moderator account with default password and verified status.
+     * Sends an email with a password reset token valid for 24 hours.
+     *
+     * @param user The user entity with moderator data (without password, roles, or accountStatus)
+     * @return The created moderator user
+     */
+    @Transactional
+    public User createModerator(User user) {
+        Set<Role> moderatorRole = roleService.resolveWithDefault(null, "ROLE_MODERATOR");
+        user.setRoles(moderatorRole);
+
+        user.setPassword(passwordEncoder.encode(moderatorDefaultPassword));
+
+        user.setAccountStatus(AccountStatus.ACTIVE);
+        user.setEmailVerifiedAt(LocalDateTime.now());
+
+        User savedUser = userRepo.save(user);
+
+        PasswordResetToken resetToken = passwordResetService.createTokenWithCustomExpiration(savedUser.getId(), 1440);
+
+        PasswordResetUrl resetUrl = new PasswordResetUrl(frontendUrl + "/reset-password", resetToken.getToken());
+        Map<String, String> variables = Map.of(
+                "user", savedUser.getFullName(),
+                "username", savedUser.getUsername(),
+                "email", savedUser.getEmail(),
+                "reset_url", resetUrl.toString()
+        );
+
+        notificationService.sendAsync(savedUser.getEmail(), EmailType.MODERATOR_ACCOUNT_CREATED, variables);
+        return savedUser;
+    }
+
     @Transactional
     public User update(Long id, User draft) {
         User existing = userRepo.findById(id).orElseThrow(() -> notFoundWith(": " + id));
@@ -121,19 +227,6 @@ public class UserService {
     }
 
     @Transactional
-    public void desactivateUser(Long userId) {
-        userRepo.findById(userId).orElseThrow(this::notFound);
-        if (userRepo.desactivateById(userId) == 0)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_SOFT_DELETE_FAIL);
-    }
-
-    @Transactional
-    public void activateUser(Long userId) {
-        if (userRepo.activateById(userId) == 0)
-            throw notFoundWith(" con ID: " + userId);
-    }
-
-    @Transactional
     public void blockUser(Long userId) {
         var user = userRepo.findById(userId).orElseThrow(this::notFound);
         if (user.getAccountStatus() != AccountStatus.BLOCKED) {
@@ -149,6 +242,19 @@ public class UserService {
             user.setAccountStatus(AccountStatus.ACTIVE);
             userRepo.save(user);
         }
+    }
+
+    @Transactional
+    public void desactivateUser(Long userId) {
+        userRepo.findById(userId).orElseThrow(this::notFound);
+        if (userRepo.deactivateById(userId) == 0)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_SOFT_DELETE_FAIL);
+    }
+
+    @Transactional
+    public void activateUser(Long userId) {
+        if (userRepo.activateById(userId) == 0)
+            throw notFoundWith(" con ID: " + userId);
     }
 
     private void apply(User existing, User draft) {

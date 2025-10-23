@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.mappers;
 
+import com.gpis.marketplace_link.dto.user.ModeratorCreateRequest;
 import com.gpis.marketplace_link.dto.user.UserCreateRequest;
 import com.gpis.marketplace_link.dto.user.UserResponse;
 import com.gpis.marketplace_link.dto.user.UserUpdateRequest;
@@ -38,6 +39,19 @@ public interface UserMapper {
             target.setLocation(GEO_FACTORY.createPoint(new Coordinate(src.longitude(), src.latitude())));
         }
     }
+
+    @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "gender", source = "gender", qualifiedByName = "stringToGender")
+    @Mapping(target = "accountStatus", ignore = true)
+    @Mapping(target = "publications", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "emailVerifiedAt", ignore = true)
+    @Mapping(target = "password", ignore = true)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "location", ignore = true)
+    User toDomain(ModeratorCreateRequest request);
 
     @Mapping(target = "roles", source = "roles", qualifiedByName = "requestsToRoles")
     @Mapping(target = "gender", source = "gender", qualifiedByName = "stringToGender")

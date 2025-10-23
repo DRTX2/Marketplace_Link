@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cuenta de Moderador Creada</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; }
+    h1 { color: #333; font-size: 20px; }
+    p { color: #555; margin: 8px 0; }
+    .info-box {
+      background: #f0f8ff;
+      padding: 15px;
+      border-left: 4px solid #007BFF;
+      margin: 15px 0;
+    }
+    a.button {
+      display: inline-block;
+      padding: 10px 20px;
+      margin-top: 15px;
+      font-size: 16px;
+      color: #fff;
+      background-color: #007BFF;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    a.button:hover { background-color: #0056b3; }
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 10px;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>¡Bienvenido al equipo de moderación!</h1>
+  <p>Hola <strong>${user}</strong>,</p>
+  <p>Tu cuenta de moderador ha sido creada exitosamente en Marketplace Link.</p>
+
+  <div class="info-box">
+    <p><strong>Información de tu cuenta:</strong></p>
+    <p>Usuario: <strong>${username}</strong></p>
+    <p>Email: <strong>${email}</strong></p>
+  </div>
+
+  <div class="warning">
+    <p><strong>⚠️ Importante - Cambio de Contraseña Requerido</strong></p>
+    <p>Por seguridad, debes cambiar tu contraseña lo antes posible. Haz clic en el botón de abajo para establecer tu nueva contraseña:</p>
+  </div>
+
+  <p><a class="button" href="${reset_url}">Cambiar Contraseña</a></p>
+
+  <p><strong>Este enlace expirará en 24 horas.</strong> Después de ese tiempo, deberás solicitar un nuevo enlace de restablecimiento de contraseña.</p>
+
+  <p>Una vez que cambies tu contraseña, podrás acceder a todas las funciones de moderador de la plataforma.</p>
+
+  <p>Si tienes alguna pregunta o necesitas ayuda, no dudes en contactar al administrador.</p>
+
+  <p>¡Gracias por unirte al equipo!</p>
+</div>
+</body>
+</html>
+

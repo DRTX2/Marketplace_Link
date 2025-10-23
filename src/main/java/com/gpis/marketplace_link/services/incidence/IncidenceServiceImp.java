@@ -4,10 +4,8 @@ import com.gpis.marketplace_link.dto.Messages;
 import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
 import com.gpis.marketplace_link.entities.*;
-import com.gpis.marketplace_link.enums.AppealStatus;
-import com.gpis.marketplace_link.enums.IncidenceDecision;
-import com.gpis.marketplace_link.enums.IncidenceStatus;
-import com.gpis.marketplace_link.enums.ReportSource;
+import com.gpis.marketplace_link.enums.*;
+import com.gpis.marketplace_link.exceptions.business.AccessDeniedException;
 import com.gpis.marketplace_link.exceptions.business.incidences.IncidenceNotAppealableException;
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
@@ -16,27 +14,33 @@ import com.gpis.marketplace_link.exceptions.business.users.ModeratorNotFoundExce
 import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundException;
 import com.gpis.marketplace_link.repositories.*;
 import com.gpis.marketplace_link.security.service.SecurityService;
-import jakarta.validation.constraints.NotNull;
+import com.gpis.marketplace_link.services.NotificationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IncidenceServiceImp implements IncidenceService {
 
+    @Value("${FRONTEND_URL}")
+    private String frontendUrl;
+
+    private final NotificationService notificationService;
     private final SecurityService securityService;
+
     private final IncidenceRepository incidenceRepository;
     private final PublicationRepository publicationRepository;
     private final UserRepository userRepository;
     private final ReportRepository reportRepository;
     private final AppealRepository appealRepository;
+
     private static final int REPORT_THRESHOLD = 3;
     private static final String SYSTEM_USERNAME = "system_user";
 
@@ -48,188 +52,248 @@ public class IncidenceServiceImp implements IncidenceService {
         incidenceRepository.bulkAutoClose(cutoff);
     }
 
-    @Transactional
+    @Transactional()
     @Override
     public ReportResponse reportByUser(RequestUserReport req) {
-        // Datos para o crear la incidencia o agregar el reporte a la incidencia existente.
+        List<IncidenceStatus> status = List.of(
+                IncidenceStatus.OPEN,
+                IncidenceStatus.PENDING_REVIEW,
+                IncidenceStatus.UNDER_REVIEW,
+                IncidenceStatus.APPEALED);
+
         Long reporterId = securityService.getCurrentUserId();
         Long publicationId = req.getPublicationId();
-        List<IncidenceStatus> status = List.of(IncidenceStatus.OPEN, IncidenceStatus.UNDER_REVIEW, IncidenceStatus.APPEALED);
-        Optional<Incidence> inc = incidenceRepository.findByPublicationIdAndStatusIn(publicationId, status);
 
-        // No existe incidencia para ese producto, entonces crear la incidencia y el reporte.
-        if (inc.isEmpty()) {
-            Publication savedPublication = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
+        // Obtener entidades base
+        Publication pub = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
+        User reporter = userRepository.findById(reporterId).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
 
-            Incidence incidence = new Incidence();
-            incidence.setPublication(savedPublication);
-            Incidence savedIncidence = incidenceRepository.save(incidence);
-
-            User reporter = userRepository.findById(reporterId).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
-
-            Report report =
-                    Report.builder()
-                            .incidence(incidence)
-                            .reporter(reporter)
-                            .reason(req.getReason())
-                            .comment(req.getComment())
-                            .source(ReportSource.USER)
-                            .build();
-
-            reportRepository.save(report);
-
-            return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_AUTO);
-
-        } else {
-            // Como existe la incidencia se considera casos como
-            Incidence existingIncidence = inc.get();
-
-            // El producto esta en revision, no se pueden agregar mas reportes.
-            if (existingIncidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
-                throw new PublicationUnderReviewException(Messages.PUBLICATION_UNDER_REVIEW_CANNOT_ADD_REPORT);
-            }
-
-            // La incidencia esta apelada, no se pueden agregar mas reportes.
-            if (existingIncidence.getStatus().equals(IncidenceStatus.APPEALED)) {
-                throw new IncidenceAppealedException(Messages.INCIDENCE_APPEALED_CANNOT_ADD_REPORT);
-            }
-
-            // La incidencia esta abierta, se puede agregar el reporte.
-            if (existingIncidence.getStatus().equals(IncidenceStatus.OPEN)) {
-                User reporter = userRepository
-                                        .findById(reporterId)
-                                        .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
-
-                Report report =
-                        Report.builder()
-                                        .incidence(existingIncidence)
-                                        .reporter(reporter)
-                                        .reason(req.getReason())
-                                        .comment(req.getComment())
-                                        .source(ReportSource.USER)
-                                        .build();
-
-                existingIncidence.getReports().add(report);
-                existingIncidence.setLastReportAt(LocalDateTime.now());
-                incidenceRepository.save(existingIncidence);
-            }
-
-            // Si la cantidad de reportes es mayor o igual a 3, se cambia el estado de la publicacion bajo revision.
-            if (existingIncidence.getReports().size() >= REPORT_THRESHOLD) {
-                Publication savedPublication = publicationRepository
-                                                        .findById(publicationId)
-                                                        .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
-                savedPublication.setUnderReview();
-                existingIncidence.setStatus(IncidenceStatus.UNDER_REVIEW);
-                publicationRepository.save(savedPublication);
-                incidenceRepository.save(existingIncidence);
-            }
-
-            return buildReportResponse(existingIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
+        // Validar si el usuario intenta reportar su propia publicación
+        if (pub.getVendor().getId().equals(reporter.getId())) {
+            throw new IncidenceNotAllowedToReportOwnPublicationException("No puedes reportar tu propia publicación.");
         }
+
+        // Crear o actualizar incidencia
+        Optional<Incidence> inc = incidenceRepository.findByPublicationIdAndStatusIn(publicationId, status);
+        if (inc.isEmpty()) {
+            return handleNewIncidence(pub, reporter, req);
+        } else {
+            return handleExistingIncidence(inc.get(), pub, reporter, req);
+        }
+    }
+
+    private ReportResponse handleNewIncidence(Publication pub, User reporter, RequestUserReport req) {
+        Incidence incidence = new Incidence();
+        incidence.setPublication(pub);
+        Incidence savedIncidence = incidenceRepository.save(incidence);
+
+        Report report = Report.builder()
+                .incidence(savedIncidence)
+                .reporter(reporter)
+                .reason(req.getReason())
+                .comment(req.getComment())
+                .source(ReportSource.USER)
+                .build();
+
+        reportRepository.save(report);
+
+        return ReportResponse.builder()
+                .publicIncidenceUi(savedIncidence.getPublicUi())
+                .publicationId(pub.getId())
+                .publicationStatus(pub.getStatus())
+                .message(Messages.REPORT_SUCCESS)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    private ReportResponse handleExistingIncidence(Incidence existing, Publication pub, User reporter, RequestUserReport req) {
+
+        if (existing.getStatus().equals(IncidenceStatus.PENDING_REVIEW)) {
+            throw new IncidenceAlreadyPendingReviewException(Messages.INCIDENCE_PENDING_REVIEW_CANNOT_ADD_REPORT);
+        }
+
+        if (existing.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
+            throw new PublicationUnderReviewException(Messages.INCIDENCE_UNDER_REVIEW_CANNOT_ADD_REPORT);
+        }
+
+        if (existing.getStatus().equals(IncidenceStatus.APPEALED)) {
+            throw new IncidenceAppealedException(Messages.INCIDENCE_APPEALED_CANNOT_ADD_REPORT);
+        }
+
+        if (existing.getStatus().equals(IncidenceStatus.OPEN)) {
+            Report report = Report.builder()
+                    .incidence(existing)
+                    .reporter(reporter)
+                    .reason(req.getReason())
+                    .comment(req.getComment())
+                    .source(ReportSource.USER)
+                    .build();
+
+            existing.getReports().add(report);
+            incidenceRepository.save(existing);
+        }
+
+        if (existing.getReports().size() >= REPORT_THRESHOLD) {
+            pub.setUnderReview();
+            existing.setStatus(IncidenceStatus.PENDING_REVIEW);
+            publicationRepository.save(pub);
+            incidenceRepository.save(existing);
+            this.notifyUserOfPublicationBlock(existing);
+        }
+
+        return ReportResponse.builder()
+                .publicIncidenceUi(existing.getPublicUi())
+                .publicationId(pub.getId())
+                .publicationStatus(pub.getStatus())
+                .message(Messages.REPORT_SUCCESS)
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
     @Transactional
     @Override
     public ReportResponse reportBySystem(RequestSystemReport req) {
         Long publicationId = req.getPublicationId();
-        List<IncidenceStatus> status = List.of(
-                IncidenceStatus.OPEN,
-                IncidenceStatus.UNDER_REVIEW,
-                IncidenceStatus.APPEALED
-        );
 
-        Optional<Incidence> optional = incidenceRepository.findByPublicationIdAndStatusIn(publicationId, status);
-        User systemUser = userRepository.findByUsername(SYSTEM_USERNAME).orElseThrow(() -> new ReporterNotFoundException(Messages.USER_SYSTEM_NOT_FOUND));
+        // Buscar incidencia activa y usuario del sistema
+        Optional<Incidence> optionalIncidence = findActiveIncidence(publicationId);
 
-        if (optional.isEmpty()) {
-            log.info("Entro al empty");
-            Incidence incidence = new Incidence();
+        User systemUser = userRepository.findByUsername(SYSTEM_USERNAME)
+                .orElseThrow(() -> new ReporterNotFoundException(Messages.USER_SYSTEM_NOT_FOUND));
 
-            Publication savedPublication = publicationRepository
-                    .findById(publicationId)
-                    .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
-            savedPublication.setUnderReview();
-
-            incidence.setPublication(savedPublication);
-            incidence.setStatus(IncidenceStatus.UNDER_REVIEW);
-            Incidence savedIncidence = incidenceRepository.save(incidence);
-
-            Report report = Report.builder()
-                            .incidence(incidence)
-                            .reporter(systemUser)
-                            .reason(req.getReason())
-                            .comment((req.getComment()))
-                            .source(ReportSource.SYSTEM)
-                            .build();
-
-            report.setSource(ReportSource.SYSTEM);
-            reportRepository.save(report);
-
-            return buildReportResponse(savedIncidence.getId(), publicationId, Messages.REPORT_SUCCESS);
+        // ️ Si no existe incidencia previa, crear una nueva
+        if (optionalIncidence.isEmpty()) {
+            return createSystemIncidence(publicationId, systemUser, req);
         }
-        log.info("No entro al empty");
 
-        Incidence inc = optional.get();
+        Publication publication = publicationRepository.findById(publicationId)
+                .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
 
-        // El caso ya no esta abierto a nueva evidencia. Se evalua si la decision tomada fue correcta en base a lo que ya existia antes de la apelacion.
-        // Por eso, si esta apelada no se puede agregar mas evidencia.
-        if (inc.getStatus().equals(IncidenceStatus.APPEALED)) {
+        // Si ya existe, validar y agregar evidencia
+        Incidence existingIncidence = optionalIncidence.get();
+
+        if (existingIncidence.getStatus().equals(IncidenceStatus.APPEALED)) {
             throw new IncidenceAppealedException(Messages.INCIDENCE_APPEALED_CANNOT_ADD_REPORT);
         }
 
-        // Si la incidencia esta bajo revision, se agrega neuva evidencia. Eso se diferencia de un usuario
-        // que si esta bajo revision, no puede agregar mas (porque puede ser informacion "falsa" sabiendo que su publicacion esta bajo revision).
         Report report = Report.builder()
-                        .incidence(inc)
-                        .reporter(systemUser)
-                        .reason(req.getReason())
-                        .comment(req.getComment())
-                        .source(ReportSource.SYSTEM).build();
+                .incidence(existingIncidence)
+                .reporter(systemUser)
+                .reason(req.getReason())
+                .comment(req.getComment())
+                .source(ReportSource.SYSTEM)
+                .build();
 
-        inc.getReports().add(report);
+        existingIncidence.getReports().add(report);
 
-        // Ahora, si esa incidencai esta abierta, automaticamente pasa a estar bajo revision.
-        if (inc.getStatus().equals(IncidenceStatus.OPEN)) {
-            inc.setStatus(IncidenceStatus.UNDER_REVIEW);
-            inc.getPublication().setUnderReview();
-            publicationRepository.save(inc.getPublication());
+        if (existingIncidence.getStatus().equals(IncidenceStatus.OPEN)) {
+            existingIncidence.setStatus(IncidenceStatus.PENDING_REVIEW);
+            existingIncidence.getPublication().setUnderReview();
+            publicationRepository.save(existingIncidence.getPublication());
         }
 
-        incidenceRepository.save(inc);
-        return buildReportResponse(inc.getId(), publicationId, Messages.REPORT_SUCCESS);
+        incidenceRepository.save(existingIncidence);
+
+        return ReportResponse.builder()
+                .publicIncidenceUi(existingIncidence.getPublicUi())
+                .publicationId(publicationId)
+                .publicationStatus(publication.getStatus())
+                .message(Messages.REPORT_SUCCESS)
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
-    private ReportResponse buildReportResponse(Long incidenceId, Long publicationId, String message) {
+    private Optional<Incidence> findActiveIncidence(Long publicationId) {
+        List<IncidenceStatus> activeStatuses = List.of(
+                IncidenceStatus.OPEN,
+                IncidenceStatus.PENDING_REVIEW,
+                IncidenceStatus.UNDER_REVIEW,
+                IncidenceStatus.APPEALED
+        );
+        return incidenceRepository.findByPublicationIdAndStatusIn(publicationId, activeStatuses);
+    }
+
+    private ReportResponse createSystemIncidence(Long publicationId, User systemUser, RequestSystemReport req) {
+        Publication publication = publicationRepository.findById(publicationId)
+                .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
+
+        publication.setUnderReview();
+
+        Incidence newIncidence = new Incidence();
+        newIncidence.setPublication(publication);
+        newIncidence.setStatus(IncidenceStatus.PENDING_REVIEW);
+        Incidence savedIncidence = incidenceRepository.save(newIncidence);
+
+        Report systemReport = Report.builder()
+                .incidence(savedIncidence)
+                .reporter(systemUser)
+                .reason(req.getReason())
+                .comment(req.getComment())
+                .source(ReportSource.SYSTEM)
+                .build();
+
+        reportRepository.save(systemReport);
+        this.notifyUserOfPublicationBlock(savedIncidence);
+
         return ReportResponse.builder()
-                .incidenceId(incidenceId)
-                .productId(publicationId)
-                .message(message)
+                .publicIncidenceUi(savedIncidence.getPublicUi())
+                .publicationId(publicationId)
+                .publicationStatus(publication.getStatus())
+                .message(Messages.REPORT_SUCCESS)
                 .createdAt(LocalDateTime.now())
                 .build();
     }
 
     @Transactional(readOnly = true)
     @Override
-    public List<IncidenceDetailsResponse> fetchAllUnreviewed() {
-        List<Incidence> incidences = this.incidenceRepository.findAllUnreviewedWithDetails();
-       return generateIncidenceDetailResponse(incidences);
+    public Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(Pageable pageable) {
+        Page<Incidence> page = this.incidenceRepository.findAllUnreviewedWithDetails(pageable);
+       return  generatePageIncidenceSimpleDetailResponse(page);
     }
 
     @Transactional(readOnly = true)
     @Override
-    public List<IncidenceDetailsResponse> fetchAllReviewed() {
+    public Page<IncidenceSimpleDetailsResponse> fetchAllReviewed(Pageable pageable) {
         Long currentUserId = securityService.getCurrentUserId();
-        List<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId);
-        return generateIncidenceDetailResponse(incidences);
+        Page<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId, pageable);
+        return generatePageIncidenceSimpleDetailResponse(incidences);
     }
 
-    public List<IncidenceDetailsResponse> generateIncidenceDetailResponse(@NotNull List<Incidence> incidences) {
-        return incidences.stream().map(i -> {
+    @Transactional(readOnly = true)
+    @Override
+    public IncidenceDetailsResponse fetchByPublicUi(UUID publicUi) {
+        Incidence incidence = incidenceRepository.findByPublicUiWithDetails(publicUi)
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + publicUi));
 
-            IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
+        Long currentUserId = securityService.getCurrentUserId();
 
-            detailsResponse.setId(i.getId());
+        if (incidence.getModerator() != null && !incidence.getModerator().getId().equals(currentUserId)) {
+            throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_FIND_INCIDENCE);
+        }
+
+        return generateIncidenceDetailResponse(incidence);
+    }
+
+    @Override
+    public IncidenceDetailsResponse fetchByPublicUiForSeller(UUID publicUi) {
+        Incidence incidence = incidenceRepository.findByPublicUiWithDetails(publicUi)
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + publicUi));
+
+        Long currentUserId = securityService.getCurrentUserId();
+
+        if (!incidence.getPublication().getVendor().getId().equals(currentUserId)) {
+            throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_FIND_INCIDENCE);
+        }
+
+        return generateIncidenceDetailResponse(incidence);
+    }
+
+    // Generar una respuesta simple para una lista (paginacion)
+    public Page<IncidenceSimpleDetailsResponse> generatePageIncidenceSimpleDetailResponse(Page<Incidence> page) {
+        return page.map(i -> {
+            IncidenceSimpleDetailsResponse detailsResponse = new IncidenceSimpleDetailsResponse();
+
+            detailsResponse.setPublicIncidenceUi(i.getPublicUi());
             detailsResponse.setAutoClosed(i.getAutoclosed());
             detailsResponse.setCreatedAt(i.getCreatedAt());
             detailsResponse.setStatus(i.getStatus());
@@ -244,36 +308,60 @@ public class IncidenceServiceImp implements IncidenceService {
             publicationResponse.setName(pub.getName());
             detailsResponse.setPublication(publicationResponse);
 
-            // Reportes
-            List<SimpleReportResponse> reports = i.getReports().stream().map(r -> {
-
-                SimpleReportResponse simpleResponse = new SimpleReportResponse();
-                User reporter = r.getReporter();
-
-                UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
-                userSimpleResponse.setId(reporter.getId());
-                userSimpleResponse.setEmail(reporter.getEmail());
-                userSimpleResponse.setFullname(reporter.getFullName());
-
-                simpleResponse.setId(r.getId());
-                simpleResponse.setComment(r.getComment());
-                simpleResponse.setReason(r.getReason());
-                simpleResponse.setReporter(userSimpleResponse);
-
-                return simpleResponse;
-            }).toList();
-            detailsResponse.setReports(reports);
-
             return detailsResponse;
+        });
+    }
+
+    // Generar una respuesta detallada para una incidencia
+    public IncidenceDetailsResponse generateIncidenceDetailResponse(Incidence i) {
+        IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
+
+        detailsResponse.setPublicIncidenceUi(i.getPublicUi());
+        detailsResponse.setAutoClosed(i.getAutoclosed());
+        detailsResponse.setCreatedAt(i.getCreatedAt());
+        detailsResponse.setStatus(i.getStatus());
+        detailsResponse.setIncidenceDecision(i.getDecision());
+        detailsResponse.setModeratorComment(i.getModeratorComment());
+
+        // Publicacion
+        SimplePublicationResponse publicationResponse = new SimplePublicationResponse();
+        Publication pub = i.getPublication();
+        publicationResponse.setId(pub.getId());
+        publicationResponse.setDescription(pub.getDescription());
+        publicationResponse.setStatus(pub.getStatus());
+        publicationResponse.setName(pub.getName());
+        detailsResponse.setPublication(publicationResponse);
+
+        // Reportes
+        List<SimpleReportResponse> reports = i.getReports().stream().map(r -> {
+
+            SimpleReportResponse simpleResponse = new SimpleReportResponse();
+            User reporter = r.getReporter();
+
+            UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
+            userSimpleResponse.setId(reporter.getId());
+            userSimpleResponse.setEmail(reporter.getEmail());
+            userSimpleResponse.setFullname(reporter.getFullName());
+
+            simpleResponse.setId(r.getId());
+            simpleResponse.setComment(r.getComment());
+            simpleResponse.setReason(r.getReason());
+            simpleResponse.setReporter(userSimpleResponse);
+            simpleResponse.setCreatedAt(r.getCreatedAt());
+
+            return simpleResponse;
         }).toList();
+        detailsResponse.setReports(reports);
+
+        return detailsResponse;
     }
 
     @Transactional
     @Override
     public ClaimIncidenceResponse claim(RequestClaimIncidence req) {
 
-        Incidence incidence = incidenceRepository.findById(req.getIncidenceId())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
+        Incidence incidence = incidenceRepository.findByPublicUi(req.getPublicIncidenceUi())
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
         Long currentUserId = this.securityService.getCurrentUserId();
 
@@ -281,29 +369,27 @@ public class IncidenceServiceImp implements IncidenceService {
                 .orElseThrow(() -> new ModeratorNotFoundException(Messages.MODERATOR_NOT_FOUND + currentUserId));
 
         if (incidence.getModerator() != null) {
-            throw new IncidenceAlreadyClaimedException("La incidencia ya fue reclamada por otro moderador.");
+            throw new IncidenceAlreadyClaimedException(Messages.INCIDENCE_ALREADY_CLAIMED);
         }
-        if (incidence.getDecision() != null) {
-            throw new IncidenceAlreadyDecidedException("La incidencia ya tiene una decisión final.");
+        if (incidence.getDecision() != IncidenceDecision.PENDING) {
+            throw new IncidenceAlreadyDecidedException(Messages.INCIDENCE_ALREADY_DECIDED);
         }
         if (Boolean.TRUE.equals(incidence.getAutoclosed())) {
-            throw new IncidenceAlreadyClosedException("La incidencia fue cerrada automáticamente y no puede reclamarse.");
+            throw new IncidenceAlreadyClosedException(Messages.INCIDENCE_ALREADY_CLOSED);
         }
 
-        if (incidence.getStatus() == IncidenceStatus.OPEN) {
-            incidence.setStatus(IncidenceStatus.UNDER_REVIEW);
-        } else if (incidence.getStatus() != IncidenceStatus.UNDER_REVIEW) {
-            // si no esta ni OPEN ni UNDER_REVIEW, no se puede reclamar
-            throw new IncidenceNotClaimableException("La incidencia no puede ser reclamada en su estado actual: " + incidence.getStatus());
+        if (incidence.getStatus() != IncidenceStatus.OPEN && incidence.getStatus() != IncidenceStatus.PENDING_REVIEW) {
+            throw new IncidenceNotClaimableException(Messages.INCIDENCE_NOT_CLAIMABLE + incidence.getStatus());
         }
 
+        incidence.setStatus(IncidenceStatus.UNDER_REVIEW);
         incidence.setModerator(moderator);
         incidenceRepository.save(incidence);
 
         ClaimIncidenceResponse response = new ClaimIncidenceResponse();
-        response.setIncidenceId(incidence.getId());
+        response.setPublicIncidenceUi(incidence.getPublicUi());
         response.setModeratorName(moderator.getFirstName() + " " + moderator.getLastName());
-        response.setMessage("Incidencia reclamada exitosamente por el moderador.");
+        response.setMessage(Messages.INCIDENCE_CLAIMED_SUCCESSFULLY);
 
         return response;
     }
@@ -312,21 +398,21 @@ public class IncidenceServiceImp implements IncidenceService {
     @Override
     public DecisionResponse makeDecision(RequestMakeDecision req) {
 
-        Incidence incidence = incidenceRepository.findById(req.getIncidenceId())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
+        Incidence incidence = incidenceRepository.findbyPublicUiWithPublication(req.getPublicIncidenceUi())
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
-        if (!incidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
-            throw new IncidenceNotUnderReviewException("No puedes tomar una decisión porque la incidencia no está en revisión. Estado actual: " + incidence.getStatus());
+        if (!incidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW) || !incidence.getDecision().equals(IncidenceDecision.PENDING)) {
+            throw new IncidenceNotUnderReviewException(Messages.INCIDENCE_NOT_UNDER_REVIEW + incidence.getStatus());
         }
 
         // Solo puedo hacer la deceision si la incidencia es mia (como moderador)
         Long currentUserId = this.securityService.getCurrentUserId();
 
         // Buscar la incidencia y ver que el id del moderador concide con el currentUserId
-        boolean belongsToModerator = incidenceRepository.existsByIdAndModeratorId(req.getIncidenceId(), currentUserId);
+        boolean belongsToModerator = incidenceRepository.existsByIdAndModeratorId(incidence.getId(), currentUserId);
 
         if (!belongsToModerator) {
-            throw new IncidenceNotBelongToModeratorException("La incidencia no pertenece al moderador actual.");
+            throw new IncidenceNotBelongToModeratorException(Messages.INCIDENCE_NOT_BELONG_TO_MODERATOR);
         }
 
         IncidenceDecision decision = req.getDecision();
@@ -335,21 +421,30 @@ public class IncidenceServiceImp implements IncidenceService {
         incidence.setDecision(decision);
         incidence.setStatus(IncidenceStatus.RESOLVED);
 
+        // Al hacer una decision sucede que si se aprueba, tengo que ver cuantos reportes tenia la publicacion. Si se hizo uba aprobacion
+        // con una publicaicon con menos de 3 reportes, pues no tiene sentido enviarle el correo. Nunca se le oculto la publicacion.
+        // Si tiene mas de 3, ahi si le envio.
+
         if (decision.equals(IncidenceDecision.APPROVED)) {
             incidence.getPublication().setVisible();
+
+            if (incidence.getReports().size() >= REPORT_THRESHOLD) {
+                this.notifyUserOfPublicationUnlock(incidence);
+            }
         }
 
         if (decision.equals(IncidenceDecision.REJECTED)) {
             incidence.getPublication().setBlocked();
+            this.notifyUserOfAppealAvailability(incidence);
         }
 
         incidenceRepository.save(incidence);
 
         return new DecisionResponse(
-                incidence.getId(),
+                incidence.getPublicUi(),
                 incidence.getDecision(),
                 incidence.getStatus().name(),
-                "Decisión procesada correctamente."
+                Messages.DECISION_PROCESSED_SUCCESSFULLY
         );
     }
 
@@ -358,22 +453,27 @@ public class IncidenceServiceImp implements IncidenceService {
     public AppealResponse appeal(RequestAppealIncidence req) {
 
         // verificar existencia
-        Incidence incidence = incidenceRepository.findById(req.getIncidenceId())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getIncidenceId()));
+        Incidence incidence = incidenceRepository.findByPublicUi(req.getPublicIncidenceUi())
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
         // verificar que este rechazada
         if (!incidence.getDecision().equals(IncidenceDecision.REJECTED)) {
-            throw new IncidenceNotAppealableException("Solo se pueden apelar incidencias que hayan sido rechazadas.");
+            throw new IncidenceNotAppealableException(Messages.INCIDENCE_NOT_APPEALABLE);
         }
 
         // ver si esa incidencia ya tiene una apelacion, si es asi, no puede apelar de nuevo.
         boolean hasAppeal = appealRepository.existsByIncidenceId(incidence.getId());
         if (hasAppeal) {
-            throw new IncidenceAlreadyAppealedException("La incidencia ya tiene una apelación registrada.");
+            throw new IncidenceAlreadyAppealedException(Messages.INCIDENCE_ALREADY_APPEALED);
         }
 
         // el que hace la apelacion (usuario actual)
         Long currentUserId = this.securityService.getCurrentUserId();
+
+        // chequear qeu el usuario actual, sea realmente el vendedor de la publicacion asociada a la incidencia
+        if (!incidence.getPublication().getVendor().getId().equals(currentUserId)) {
+            throw new IncidenceAppealNotAllowedException(Messages.SELLER_NOT_OWNER_OF_PUBLICATION);
+        }
 
         incidence.setStatus(IncidenceStatus.APPEALED);
         Incidence appealedIncidence = incidenceRepository.save(incidence);
@@ -395,11 +495,12 @@ public class IncidenceServiceImp implements IncidenceService {
             // se intentara asignar automaticamente otro moderador.
             appeal.setStatus(AppealStatus.FAILED_NO_MOD);
             Appeal saved = appealRepository.save(appeal);
+            this.sendAppealPendingAssignmentEmailToSeller(saved);
 
             return AppealResponse.builder()
                     .appealId(saved.getId())
-                    .incidenceId(appealedIncidence.getId())
-                    .message("Apelación creada exitosamente. Pendiente de asignación de moderador.")
+                    .publicIncidenceUi(appealedIncidence.getPublicUi())
+                    .message(Messages.APPEAL_CREATED_PENDING_MODERATOR)
                     .status(AppealStatus.FAILED_NO_MOD)
                     .createdAt(LocalDateTime.now())
                     .previousModerator(null)
@@ -415,28 +516,113 @@ public class IncidenceServiceImp implements IncidenceService {
         appeal.setStatus(AppealStatus.ASSIGNED);
         Appeal saved = appealRepository.save(appeal);
 
+
         // formar los dtos para moderadores
         ModeratorInfo previousModeratorInfo = new ModeratorInfo();
         previousModeratorInfo.setId(previousModerator.getId());
-        previousModeratorInfo.setFullName(previousModerator.getFullName());
+        previousModeratorInfo.setFullname(previousModerator.getFullName());
         previousModeratorInfo.setEmail(previousModerator.getEmail());
 
         ModeratorInfo newModeratorInfo = new ModeratorInfo();
         newModeratorInfo.setId(newModerator.getId());
-        newModeratorInfo.setFullName(newModerator.getFullName());
+        newModeratorInfo.setFullname(newModerator.getFullName());
         newModeratorInfo.setEmail(newModerator.getEmail());
+
+        this.notifyUserOfAppealSubmission(incidence);
+        this.notifyModeratorOfNewAppeal(incidence, newModeratorInfo, saved);
 
         // formar respuesta final
         return AppealResponse.builder()
                 .appealId(saved.getId())
-                .incidenceId(appealedIncidence.getId())
-                .message("Apelación creada exitosamente.")
+                .publicIncidenceUi(appealedIncidence.getPublicUi())
+                .message(Messages.APPEAL_CREATED_SUCCESS)
                 .status(AppealStatus.ASSIGNED)
                 .createdAt(LocalDateTime.now())
                 .previousModerator(previousModeratorInfo)
                 .newModerator(newModeratorInfo)
                 .build();
     }
+
+    private void notifyUserOfPublicationBlock(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_BLOCKED_NOTIFICATION, variables);
+    }
+
+    public void notifyUserOfPublicationUnlock(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_UNLOCK_NOTIFICATION, variables);
+    }
+
+    public void notifyUserOfAppealAvailability(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        String uriFrontend = frontendUrl + "/marketplace-refactored" + "/incidencias/" + incidence.getPublicUi() + "/apelacion";
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName(),
+                "appealLink", uriFrontend
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_APPEAL_AVAILABLE_NOTIFICATION, variables);
+    }
+
+    public void sendAppealPendingAssignmentEmailToSeller(Appeal appeal) {
+        Publication pub = appeal.getIncidence().getPublication();
+        User vendor = appeal.getSeller();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+
+        notificationService.sendAsync(
+                vendor.getEmail(),
+                EmailType.APPEAL_PENDING_ASSIGNMENT_NOTIFICATION,
+                variables
+        );
+    }
+
+    public void notifyUserOfAppealSubmission(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.APPEAL_RECEIVED_CONFIRMATION_NOTIFICATION, variables);
+    }
+
+    public void notifyModeratorOfNewAppeal(Incidence incidence, ModeratorInfo moderatorInfo, Appeal appeal) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+        String newEmail = moderatorInfo.getEmail();
+
+        String uriFrontend = frontendUrl + "/marketplace-refactored" + "/apelaciones/" + appeal.getId();
+
+        Map<String, String> variables = Map.of(
+                "moderatorName", moderatorInfo.getFullname(),
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName(),
+                "moderationPanelLink", uriFrontend
+        );
+        notificationService.sendAsync(newEmail, EmailType.APPEAL_ASSIGNED_TO_MODERATOR_NOTIFICATION, variables);
+    }
+
+
 
 
 }
