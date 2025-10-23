@@ -13,6 +13,8 @@ import com.gpis.marketplace_link.repositories.FavoritePublicationRepository;
 import com.gpis.marketplace_link.repositories.PublicationRepository;
 import com.gpis.marketplace_link.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,17 +63,16 @@ public class FavoritePublicationService {
     }
 
     @Transactional(readOnly = true)
-    public List<FavoritePublicationResponse> getUserFavorites(Long userId) {
+    public Page<FavoritePublicationResponse> getUserFavorites(Long userId, Pageable pageable) {
         if (!userRepository.existsById(userId)) {
             throw new UserNotFoundException("Usuario con ID " + userId + " no encontrado");
         }
 
-        List<FavoritePublication> favorites = favoritePublicationRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+        Page<FavoritePublication> favoritesPage = favoritePublicationRepository.findByUserId(userId, pageable);
 
-        return favorites.stream()
-                .map(favoritePublicationMapper::toResponse)
-                .collect(Collectors.toList());
+        return favoritesPage.map(favoritePublicationMapper::toResponse);
     }
+
 
     @Transactional(readOnly = true)
     public boolean isFavorite(Long userId, Long publicationId) {
