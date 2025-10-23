@@ -30,11 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 @Service
@@ -70,7 +68,8 @@ public class PublicationService {
                         .and(PublicationSpecifications.notSuspended())
                         .and(PublicationSpecifications.hasAnyCategory(categoryIds))
                         .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
-                        .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm));
+                        .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm))
+                        .and(PublicationSpecifications.vendorAccountStatusIsActive());
 
         Page<Publication> publications = repository.findAll(spec, pageable);
 
@@ -240,7 +239,8 @@ public class PublicationService {
                 PublicationSpecifications.idIs(id)
                         .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
                         .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.notSuspended());
+                        .and(PublicationSpecifications.notSuspended())
+                        .and(PublicationSpecifications.vendorAccountStatusIsActive());
 
         return repository.findOne(spec)
                 .orElseThrow(() -> new PublicationNotFoundException(
