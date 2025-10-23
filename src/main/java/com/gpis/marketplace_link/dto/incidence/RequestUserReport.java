@@ -15,7 +15,7 @@ public class RequestUserReport {
     @JsonProperty("publication_id")
     private Long publicationId;
 
-    @Size(min = 3, max = 100, message = "El motivo debe tener entre 10 y maximo 100 caracteres.")
+    @Size(min = 3, max = 30, message = "El motivo debe tener entre 10 y maximo 30 caracteres.")
     @NotBlank(message = "El motivo es requerido.")
     private String reason;
 

@@ -5,6 +5,7 @@ import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
 import com.gpis.marketplace_link.entities.*;
 import com.gpis.marketplace_link.enums.*;
+import com.gpis.marketplace_link.exceptions.business.AccessDeniedException;
 import com.gpis.marketplace_link.exceptions.business.incidences.IncidenceNotAppealableException;
 import com.gpis.marketplace_link.exceptions.business.incidences.*;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
@@ -14,7 +15,6 @@ import com.gpis.marketplace_link.exceptions.business.users.ReporterNotFoundExcep
 import com.gpis.marketplace_link.repositories.*;
 import com.gpis.marketplace_link.security.service.SecurityService;
 import com.gpis.marketplace_link.services.NotificationService;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -109,11 +109,11 @@ public class IncidenceServiceImp implements IncidenceService {
     private ReportResponse handleExistingIncidence(Incidence existing, Publication pub, User reporter, RequestUserReport req) {
 
         if (existing.getStatus().equals(IncidenceStatus.PENDING_REVIEW)) {
-            throw new RuntimeException("No puedes agregar un reporte a una incidencia que ya está pendiente de revisión.");
+            throw new IncidenceAlreadyPendingReviewException(Messages.INCIDENCE_PENDING_REVIEW_CANNOT_ADD_REPORT);
         }
 
         if (existing.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
-            throw new PublicationUnderReviewException(Messages.PUBLICATION_UNDER_REVIEW_CANNOT_ADD_REPORT);
+            throw new PublicationUnderReviewException(Messages.INCIDENCE_UNDER_REVIEW_CANNOT_ADD_REPORT);
         }
 
         if (existing.getStatus().equals(IncidenceStatus.APPEALED)) {
@@ -138,7 +138,7 @@ public class IncidenceServiceImp implements IncidenceService {
             existing.setStatus(IncidenceStatus.PENDING_REVIEW);
             publicationRepository.save(pub);
             incidenceRepository.save(existing);
-            this.notifyUserOfBlockAndAppealOption(existing);
+            this.notifyUserOfPublicationBlock(existing);
         }
 
         return ReportResponse.builder()
@@ -233,7 +233,7 @@ public class IncidenceServiceImp implements IncidenceService {
                 .build();
 
         reportRepository.save(systemReport);
-        this.notifyUserOfBlockAndAppealOption(savedIncidence);
+        this.notifyUserOfPublicationBlock(savedIncidence);
 
         return ReportResponse.builder()
                 .publicIncidenceUi(savedIncidence.getPublicUi())
@@ -244,37 +244,54 @@ public class IncidenceServiceImp implements IncidenceService {
                 .build();
     }
 
-    private void notifyUserOfBlockAndAppealOption(Incidence incidence) {
-        Publication pub = incidence.getPublication();
-        User vendor = pub.getVendor();
-
-        Map<String, String> variables = Map.of(
-                "fullName", vendor.getFullName(),
-                "publicationName", pub.getName(),
-                "appealLink", this.frontendUrl + "/appeals/" + incidence.getPublicUi()
-        );
-        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_BLOCKED_NOTIFICATION, variables);
-    }
-
     @Transactional(readOnly = true)
     @Override
-    public Page<IncidenceDetailsResponse> fetchAllUnreviewed(Pageable pageable) {
+    public Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(Pageable pageable) {
         Page<Incidence> page = this.incidenceRepository.findAllUnreviewedWithDetails(pageable);
-       return  generatePageIncidenceDetailResponse(page);
+       return  generatePageIncidenceSimpleDetailResponse(page);
     }
 
     @Transactional(readOnly = true)
     @Override
-    public Page<IncidenceDetailsResponse> fetchAllReviewed(Pageable pageable) {
+    public Page<IncidenceSimpleDetailsResponse> fetchAllReviewed(Pageable pageable) {
         Long currentUserId = securityService.getCurrentUserId();
         Page<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId, pageable);
-        return generatePageIncidenceDetailResponse(incidences);
+        return generatePageIncidenceSimpleDetailResponse(incidences);
     }
 
-    public Page<IncidenceDetailsResponse> generatePageIncidenceDetailResponse(Page<Incidence> page) {
-        return page.map(i -> {
+    @Transactional(readOnly = true)
+    @Override
+    public IncidenceDetailsResponse fetchByPublicUi(UUID publicUi) {
+        Incidence incidence = incidenceRepository.findByPublicUiWithDetails(publicUi)
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + publicUi));
 
-            IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
+        Long currentUserId = securityService.getCurrentUserId();
+
+        if (incidence.getModerator() != null && !incidence.getModerator().getId().equals(currentUserId)) {
+            throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_FIND_INCIDENCE);
+        }
+
+        return generateIncidenceDetailResponse(incidence);
+    }
+
+    @Override
+    public IncidenceDetailsResponse fetchByPublicUiForSeller(UUID publicUi) {
+        Incidence incidence = incidenceRepository.findByPublicUiWithDetails(publicUi)
+                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + publicUi));
+
+        Long currentUserId = securityService.getCurrentUserId();
+
+        if (!incidence.getPublication().getVendor().getId().equals(currentUserId)) {
+            throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_FIND_INCIDENCE);
+        }
+
+        return generateIncidenceDetailResponse(incidence);
+    }
+
+    // Generar una respuesta simple para una lista (paginacion)
+    public Page<IncidenceSimpleDetailsResponse> generatePageIncidenceSimpleDetailResponse(Page<Incidence> page) {
+        return page.map(i -> {
+            IncidenceSimpleDetailsResponse detailsResponse = new IncidenceSimpleDetailsResponse();
 
             detailsResponse.setPublicIncidenceUi(i.getPublicUi());
             detailsResponse.setAutoClosed(i.getAutoclosed());
@@ -291,28 +308,52 @@ public class IncidenceServiceImp implements IncidenceService {
             publicationResponse.setName(pub.getName());
             detailsResponse.setPublication(publicationResponse);
 
-            // Reportes
-            List<SimpleReportResponse> reports = i.getReports().stream().map(r -> {
-
-                SimpleReportResponse simpleResponse = new SimpleReportResponse();
-                User reporter = r.getReporter();
-
-                UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
-                userSimpleResponse.setId(reporter.getId());
-                userSimpleResponse.setEmail(reporter.getEmail());
-                userSimpleResponse.setFullname(reporter.getFullName());
-
-                simpleResponse.setId(r.getId());
-                simpleResponse.setComment(r.getComment());
-                simpleResponse.setReason(r.getReason());
-                simpleResponse.setReporter(userSimpleResponse);
-
-                return simpleResponse;
-            }).toList();
-            detailsResponse.setReports(reports);
-
             return detailsResponse;
         });
+    }
+
+    // Generar una respuesta detallada para una incidencia
+    public IncidenceDetailsResponse generateIncidenceDetailResponse(Incidence i) {
+        IncidenceDetailsResponse detailsResponse = new IncidenceDetailsResponse();
+
+        detailsResponse.setPublicIncidenceUi(i.getPublicUi());
+        detailsResponse.setAutoClosed(i.getAutoclosed());
+        detailsResponse.setCreatedAt(i.getCreatedAt());
+        detailsResponse.setStatus(i.getStatus());
+        detailsResponse.setIncidenceDecision(i.getDecision());
+        detailsResponse.setModeratorComment(i.getModeratorComment());
+
+        // Publicacion
+        SimplePublicationResponse publicationResponse = new SimplePublicationResponse();
+        Publication pub = i.getPublication();
+        publicationResponse.setId(pub.getId());
+        publicationResponse.setDescription(pub.getDescription());
+        publicationResponse.setStatus(pub.getStatus());
+        publicationResponse.setName(pub.getName());
+        detailsResponse.setPublication(publicationResponse);
+
+        // Reportes
+        List<SimpleReportResponse> reports = i.getReports().stream().map(r -> {
+
+            SimpleReportResponse simpleResponse = new SimpleReportResponse();
+            User reporter = r.getReporter();
+
+            UserSimpleResponse userSimpleResponse = new UserSimpleResponse();
+            userSimpleResponse.setId(reporter.getId());
+            userSimpleResponse.setEmail(reporter.getEmail());
+            userSimpleResponse.setFullname(reporter.getFullName());
+
+            simpleResponse.setId(r.getId());
+            simpleResponse.setComment(r.getComment());
+            simpleResponse.setReason(r.getReason());
+            simpleResponse.setReporter(userSimpleResponse);
+            simpleResponse.setCreatedAt(r.getCreatedAt());
+
+            return simpleResponse;
+        }).toList();
+        detailsResponse.setReports(reports);
+
+        return detailsResponse;
     }
 
     @Transactional
@@ -330,7 +371,7 @@ public class IncidenceServiceImp implements IncidenceService {
         if (incidence.getModerator() != null) {
             throw new IncidenceAlreadyClaimedException(Messages.INCIDENCE_ALREADY_CLAIMED);
         }
-        if (incidence.getDecision() != null) {
+        if (incidence.getDecision() != IncidenceDecision.PENDING) {
             throw new IncidenceAlreadyDecidedException(Messages.INCIDENCE_ALREADY_DECIDED);
         }
         if (Boolean.TRUE.equals(incidence.getAutoclosed())) {
@@ -357,10 +398,10 @@ public class IncidenceServiceImp implements IncidenceService {
     @Override
     public DecisionResponse makeDecision(RequestMakeDecision req) {
 
-        Incidence incidence = incidenceRepository.findByPublicUi(req.getPublicIncidenceUi())
+        Incidence incidence = incidenceRepository.findbyPublicUiWithPublication(req.getPublicIncidenceUi())
                 .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
-        if (!incidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW)) {
+        if (!incidence.getStatus().equals(IncidenceStatus.UNDER_REVIEW) || !incidence.getDecision().equals(IncidenceDecision.PENDING)) {
             throw new IncidenceNotUnderReviewException(Messages.INCIDENCE_NOT_UNDER_REVIEW + incidence.getStatus());
         }
 
@@ -380,12 +421,21 @@ public class IncidenceServiceImp implements IncidenceService {
         incidence.setDecision(decision);
         incidence.setStatus(IncidenceStatus.RESOLVED);
 
+        // Al hacer una decision sucede que si se aprueba, tengo que ver cuantos reportes tenia la publicacion. Si se hizo uba aprobacion
+        // con una publicaicon con menos de 3 reportes, pues no tiene sentido enviarle el correo. Nunca se le oculto la publicacion.
+        // Si tiene mas de 3, ahi si le envio.
+
         if (decision.equals(IncidenceDecision.APPROVED)) {
             incidence.getPublication().setVisible();
+
+            if (incidence.getReports().size() >= REPORT_THRESHOLD) {
+                this.notifyUserOfPublicationUnlock(incidence);
+            }
         }
 
         if (decision.equals(IncidenceDecision.REJECTED)) {
             incidence.getPublication().setBlocked();
+            this.notifyUserOfAppealAvailability(incidence);
         }
 
         incidenceRepository.save(incidence);
@@ -420,8 +470,12 @@ public class IncidenceServiceImp implements IncidenceService {
         // el que hace la apelacion (usuario actual)
         Long currentUserId = this.securityService.getCurrentUserId();
 
+        // chequear qeu el usuario actual, sea realmente el vendedor de la publicacion asociada a la incidencia
+        if (!incidence.getPublication().getVendor().getId().equals(currentUserId)) {
+            throw new IncidenceAppealNotAllowedException(Messages.SELLER_NOT_OWNER_OF_PUBLICATION);
+        }
+
         incidence.setStatus(IncidenceStatus.APPEALED);
-        incidence.setDecision(IncidenceDecision.PENDING);
         Incidence appealedIncidence = incidenceRepository.save(incidence);
 
         User seller = userRepository.findById(currentUserId)
@@ -441,6 +495,7 @@ public class IncidenceServiceImp implements IncidenceService {
             // se intentara asignar automaticamente otro moderador.
             appeal.setStatus(AppealStatus.FAILED_NO_MOD);
             Appeal saved = appealRepository.save(appeal);
+            this.sendAppealPendingAssignmentEmailToSeller(saved);
 
             return AppealResponse.builder()
                     .appealId(saved.getId())
@@ -461,16 +516,20 @@ public class IncidenceServiceImp implements IncidenceService {
         appeal.setStatus(AppealStatus.ASSIGNED);
         Appeal saved = appealRepository.save(appeal);
 
+
         // formar los dtos para moderadores
         ModeratorInfo previousModeratorInfo = new ModeratorInfo();
         previousModeratorInfo.setId(previousModerator.getId());
-        previousModeratorInfo.setFullName(previousModerator.getFullName());
+        previousModeratorInfo.setFullname(previousModerator.getFullName());
         previousModeratorInfo.setEmail(previousModerator.getEmail());
 
         ModeratorInfo newModeratorInfo = new ModeratorInfo();
         newModeratorInfo.setId(newModerator.getId());
-        newModeratorInfo.setFullName(newModerator.getFullName());
+        newModeratorInfo.setFullname(newModerator.getFullName());
         newModeratorInfo.setEmail(newModerator.getEmail());
+
+        this.notifyUserOfAppealSubmission(incidence);
+        this.notifyModeratorOfNewAppeal(incidence, newModeratorInfo, saved);
 
         // formar respuesta final
         return AppealResponse.builder()
@@ -483,6 +542,87 @@ public class IncidenceServiceImp implements IncidenceService {
                 .newModerator(newModeratorInfo)
                 .build();
     }
+
+    private void notifyUserOfPublicationBlock(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_BLOCKED_NOTIFICATION, variables);
+    }
+
+    public void notifyUserOfPublicationUnlock(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_UNLOCK_NOTIFICATION, variables);
+    }
+
+    public void notifyUserOfAppealAvailability(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        String uriFrontend = frontendUrl + "/marketplace-refactored" + "/incidencias/" + incidence.getPublicUi() + "/apelacion";
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName(),
+                "appealLink", uriFrontend
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_APPEAL_AVAILABLE_NOTIFICATION, variables);
+    }
+
+    public void sendAppealPendingAssignmentEmailToSeller(Appeal appeal) {
+        Publication pub = appeal.getIncidence().getPublication();
+        User vendor = appeal.getSeller();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+
+        notificationService.sendAsync(
+                vendor.getEmail(),
+                EmailType.APPEAL_PENDING_ASSIGNMENT_NOTIFICATION,
+                variables
+        );
+    }
+
+    public void notifyUserOfAppealSubmission(Incidence incidence) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+
+        Map<String, String> variables = Map.of(
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName()
+        );
+        notificationService.sendAsync(vendor.getEmail(), EmailType.APPEAL_RECEIVED_CONFIRMATION_NOTIFICATION, variables);
+    }
+
+    public void notifyModeratorOfNewAppeal(Incidence incidence, ModeratorInfo moderatorInfo, Appeal appeal) {
+        Publication pub = incidence.getPublication();
+        User vendor = pub.getVendor();
+        String newEmail = moderatorInfo.getEmail();
+
+        String uriFrontend = frontendUrl + "/marketplace-refactored" + "/apelaciones/" + appeal.getId();
+
+        Map<String, String> variables = Map.of(
+                "moderatorName", moderatorInfo.getFullname(),
+                "fullName", vendor.getFullName(),
+                "publicationName", pub.getName(),
+                "moderationPanelLink", uriFrontend
+        );
+        notificationService.sendAsync(newEmail, EmailType.APPEAL_ASSIGNED_TO_MODERATOR_NOTIFICATION, variables);
+    }
+
+
 
 
 }

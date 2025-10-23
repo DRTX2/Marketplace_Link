@@ -66,8 +66,6 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
             value = """
         SELECT DISTINCT i FROM Incidence i
         JOIN FETCH i.publication p
-        JOIN FETCH i.reports r
-        JOIN FETCH r.reporter
         WHERE i.status IN (
             com.gpis.marketplace_link.enums.IncidenceStatus.OPEN,
             com.gpis.marketplace_link.enums.IncidenceStatus.PENDING_REVIEW
@@ -86,6 +84,17 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     """
     )
     Page<Incidence> findAllUnreviewedWithDetails(Pageable pageable);
+
+    @Query(
+            """
+        SELECT DISTINCT i FROM Incidence i
+        JOIN FETCH i.publication p
+        JOIN FETCH i.reports r
+        JOIN FETCH r.reporter
+        WHERE i.publicUi = :publicUi
+    """
+    )
+    Optional<Incidence> findByPublicUiWithDetails(UUID publicUi);
 
     @Query(
             value =
@@ -112,5 +121,15 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     boolean existsByIdAndModeratorId(Long incidenceId, Long moderatorId);
 
     Optional<Incidence> findByPublicUi(UUID publicUi);
-    
+
+    @Query("""
+        SELECT i
+        FROM Incidence i
+        JOIN FETCH i.publication p
+        JOIN FETCH p.vendor v
+        WHERE i.publicUi = :publicUi
+    """)
+    Optional<Incidence> findbyPublicUiWithPublication(UUID publicUi);
+
+
 }

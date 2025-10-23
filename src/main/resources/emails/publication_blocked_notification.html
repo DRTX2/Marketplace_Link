@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Confirma tu correo</title>
+    <title>Publicación bloqueada - Notificación</title>
 </head>
 <body
         style="
@@ -33,42 +33,24 @@
         text-align: center;
       "
     >
-        <h2 style="margin: 0; font-size: 22px;">Confirma tu correo electrónico</h2>
+        <h2 style="margin: 0; font-size: 22px;">Publicación bloqueada</h2>
         <p style="margin: 6px 0 0; font-size: 15px; opacity: 0.9;">
-            Activa tu cuenta de Marketplace Link
+            Notificación de revisión en curso
         </p>
     </div>
 
     <!-- Body -->
     <div style="padding: 28px;">
         <p style="font-size: 16px; margin-top: 0;">
-            Hola <strong>${user}</strong>,
+            Hola <strong>${fullName}</strong>,
         </p>
 
         <p style="font-size: 15px; line-height: 1.6; color: #444;">
-            Gracias por registrarte en
-            <strong style="color: #fb8c00;">Marketplace Link</strong>.
-            Para activar tu cuenta, confirma tu correo electrónico haciendo clic en el siguiente botón:
+            Queremos informarte que tu publicación
+            <strong style="color: #fb8c00;">${publicationName}</strong> ha sido
+            <strong>bloqueada temporalmente</strong> debido a reportes o posibles
+            infracciones de las políticas del sistema.
         </p>
-
-        <div style="text-align: center; margin: 30px 0;">
-            <a
-                    href="${confirm_url}"
-                    style="
-            display: inline-block;
-            background-color: #fb8c00;
-            color: #fff;
-            text-decoration: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 15px;
-            transition: background-color 0.2s ease;
-          "
-            >
-                Confirmar correo
-            </a>
-        </div>
 
         <div
                 style="
@@ -80,15 +62,25 @@
         "
         >
             <p style="margin: 0; font-size: 14px; color: #6d4c41;">
-                El enlace expirará en <strong>24 horas</strong>.
-                Si no creaste una cuenta, puedes ignorar este mensaje con seguridad.
+                Uno de nuestros moderadores revisará tu caso y tomará una decisión
+                al respecto.
+                <br /><br />
+                Si la incidencia es <strong>rechazada</strong>, se te notificará y
+                podrás <strong>apelar la decisión</strong>.
+                En caso contrario, si la incidencia es <strong>aprobada</strong>,
+                tu publicación volverá a estar visible en el sistema.
             </p>
         </div>
+
+        <p style="font-size: 15px; color: #444;">
+            Agradecemos tu comprensión y colaboración para mantener una comunidad
+            segura y confiable.
+        </p>
 
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
 
         <p style="font-size: 13px; color: #777; text-align: center;">
-            — Equipo de Soporte de
+            — Equipo de Moderación de
             <span style="color: #fb8c00; font-weight: bold;">Marketplace Link</span>
         </p>
     </div>

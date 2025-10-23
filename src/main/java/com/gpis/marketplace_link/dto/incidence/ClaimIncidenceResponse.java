@@ -14,6 +14,8 @@ public class ClaimIncidenceResponse {
     private UUID publicIncidenceUi;
 
     private String message;
+
+    @JsonProperty("moderator_name")
     private String moderatorName;
 
 }

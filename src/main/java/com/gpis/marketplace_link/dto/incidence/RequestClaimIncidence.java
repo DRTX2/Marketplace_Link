@@ -12,6 +12,6 @@ import java.util.UUID;
 public class RequestClaimIncidence {
 
     @JsonProperty("incidence_id")
-    @NotNull(message = "Incidence ID cannot be null")
+    @NotNull(message = "El id de la incidencia no puede ser nulo")
     private UUID publicIncidenceUi;
 }

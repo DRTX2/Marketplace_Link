@@ -261,17 +261,17 @@ INSERT INTO users (
 ) VALUES
       -- Parque Cevallos
       ('0202020202', 'JosueG', crypt('password123', gen_salt('bf',12)),
-       'moderator@example.com', '0999000002', 'Josue', 'Garcia', 'MALE',
+       'josuegarcab2@hotmail.com', '0999000002', 'Josue', 'Garcia', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.62712, -1.24118), 4326)),
 
       -- Mall de los Andes
       ('0303030303', 'JoelB', crypt('password123', gen_salt('bf',12)),
-       'josuegarcab2@hotmail.com', '0999000003', 'Joel', 'Bonilla', 'MALE',
+       'pruebasjos05@gmail.com', '0999000003', 'Joel', 'Bonilla', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.62823, -1.26510), 4326)),
 
       -- UTA (Campus Huachi)
       ('0404040404', 'DavidM', crypt('password123', gen_salt('bf',12)),
-       'seller2@example.com', '0999000004', 'David', 'Manjarres', 'MALE',
+       'pruebasjos07@gmail.com', '0999000004', 'David', 'Manjarres', 'MALE',
        'ACTIVE', NOW(), ST_SetSRID(ST_MakePoint(-78.62411, -1.26901), 4326)),
 
       -- Terminal Terrestre Ambato
@@ -284,11 +284,11 @@ ON CONFLICT (username) DO NOTHING;
 -- Asignación de roles fijos
 -- =====================================
 INSERT INTO users_roles (user_id, role_id) VALUES
-    ((SELECT id FROM users WHERE username = 'admin'),   (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')),
-    ((SELECT id FROM users WHERE username = 'JosueG'),  (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
-    ((SELECT id FROM users WHERE username = 'JoelB'),   (SELECT id FROM roles WHERE name = 'ROLE_SELLER')),
-    ((SELECT id FROM users WHERE username = 'DavidM'),  (SELECT id FROM roles WHERE name = 'ROLE_SELLER')),
-    ((SELECT id FROM users WHERE username = 'DavidB'),  (SELECT id FROM roles WHERE name = 'ROLE_BUYER'))
+    ((SELECT id FROM users WHERE username = 'admin'),   (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')), -- admin@example.com
+    ((SELECT id FROM users WHERE username = 'JosueG'),  (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')), -- josuegarcab2@hotmail.com
+    ((SELECT id FROM users WHERE username = 'JoelB'),   (SELECT id FROM roles WHERE name = 'ROLE_SELLER')), -- pruebasjos05@gmail.com
+    ((SELECT id FROM users WHERE username = 'DavidM'),  (SELECT id FROM roles WHERE name = 'ROLE_SELLER')), -- pruebasjos07@gmail.com
+    ((SELECT id FROM users WHERE username = 'DavidB'),  (SELECT id FROM roles WHERE name = 'ROLE_BUYER')) -- buyer@example.com
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- ======================
@@ -296,8 +296,8 @@ ON CONFLICT (user_id, role_id) DO NOTHING;
 -- ======================
 INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at)
 VALUES
-    ('0606060606', 'moderator_two', crypt('password123', gen_salt('bf',12)), 'moderator2@example.com', '0999000006', 'Moderator', 'Two', 'MALE', 'ACTIVE', NOW()),
-    ('0707070707', 'moderator_three', crypt('password123', gen_salt('bf',12)), 'moderator3@example.com', '0999000007', 'Moderator', 'Three', 'FEMALE', 'ACTIVE', NOW())
+    ('0606060606', 'moderator_two', crypt('password123', gen_salt('bf',12)), 'josuegarcab2@gmail.com', '0999000006', 'Moderator', 'Two', 'MALE', 'ACTIVE', NOW()),
+    ('0707070707', 'moderator_three', crypt('password123', gen_salt('bf',12)), 'pruebasjos04@gmail.com', '0999000007', 'Moderator', 'Three', 'FEMALE', 'ACTIVE', NOW())
     ON CONFLICT (username) DO NOTHING;
 
 -- ======================
@@ -365,7 +365,7 @@ CREATE TABLE incidences (
                             id  BIGSERIAL PRIMARY KEY ,
                             public_ui UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
                             publication_id BIGINT NOT NULL,
-                            status VARCHAR(20) CHECK (status IN ('OPEN', 'PENDING_REVIEW', 'UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
+                            status VARCHAR(20) CHECK (status IN ('OPEN', 'PENDING_REVIEW','UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             auto_closed BOOLEAN DEFAULT FALSE,
                             moderator_id BIGINT,

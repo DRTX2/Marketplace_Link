@@ -11,12 +11,16 @@ public final class Messages {
     public static final String REPORTER_NOT_FOUND = "Reportero no encontrado con id=";
     public static final String USER_SYSTEM_NOT_FOUND = "Usuario del sistema no encontrado.";
     public static final String MODERATOR_NOT_FOUND = "Moderador no encontrado con id=";
+    public static final String ACCESS_DENIED_TO_FIND_INCIDENCE = "No tienes permiso para acceder a esta incidencia";
+    public static final String SELLER_NOT_OWNER_OF_PUBLICATION = "No eres el propietario de la publicacion.";
 
     // === PUBLICACIONES ===
     public static final String PUBLICATION_NOT_FOUND ="Publicación no encontrada con id=";
 
     // === INCIDENCIAS ===
     public static final String INCIDENCE_NOT_FOUND = "Incidencia no encontrada con id=";
+    public static final String INCIDENCE_PENDING_REVIEW_CANNOT_ADD_REPORT =   "No puedes agregar un reporte a una incidencia que ya está pendiente de revisión.";
+    public static final String INCIDENCE_UNDER_REVIEW_CANNOT_ADD_REPORT = "No puedes agregar un reporte a una incidencia que está en revisión.";
 
     // === BLOQUEOS ===
     public static final String REPORTER_BLOCKED_FROM_REPORTING = "No puedes reportar esta publicación hasta ";

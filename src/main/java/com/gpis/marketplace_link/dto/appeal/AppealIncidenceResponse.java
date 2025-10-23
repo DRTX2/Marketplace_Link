@@ -10,12 +10,14 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
 public class AppealIncidenceResponse {
 
-    private Long id;
+    @JsonProperty("incidence_id")
+    private UUID publicIncidenceUi;
 
     @JsonProperty("moderator_comment")
     private String moderatorComment;
@@ -24,9 +26,6 @@ public class AppealIncidenceResponse {
 
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
-
-    @JsonProperty("last_report_at")
-    private LocalDateTime lastReportAt;
 
     @JsonProperty("previous_moderator")
     private ModeratorInfo previousModerator;
