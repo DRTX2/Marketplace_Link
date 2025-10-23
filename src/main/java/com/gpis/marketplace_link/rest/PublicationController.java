@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -56,6 +57,7 @@ public class PublicationController {
 
     }
 
+    @PreAuthorize("hasRole('SELLER')")
     @GetMapping("/by-vendor")
     public ResponseEntity<Page<PublicationSummaryResponse>> getAll(
             @RequestParam(defaultValue = "0") int page,
@@ -71,18 +73,21 @@ public class PublicationController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasRole('SELLER')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PublicationResponse> create(@Valid @ModelAttribute PublicationCreateRequest request){
         PublicationResponse response = service.create(request);
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasRole('SELLER')")
     @PutMapping(value = "/{id}",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PublicationResponse> update(@PathVariable Long id, @Valid @ModelAttribute PublicationUpdateRequest request){
         PublicationResponse response = service.update(id,request);
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasRole('SELLER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id){
         service.delete(id);
