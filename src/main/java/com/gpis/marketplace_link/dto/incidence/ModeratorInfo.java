@@ -8,7 +8,7 @@ import lombok.Setter;
 public class ModeratorInfo {
 
     private Long id;
-    private String fullName;
+    private String fullname;
     private String email;
 
 }

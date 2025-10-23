@@ -6,7 +6,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import javax.swing.text.html.Option;
 import java.util.List;
+import java.util.Optional;
 
 public interface AppealRepository extends JpaRepository<Appeal,Long> {
 
@@ -25,10 +27,6 @@ public interface AppealRepository extends JpaRepository<Appeal,Long> {
     @Query(value = """
         SELECT DISTINCT a 
         FROM Appeal a 
-        JOIN FETCH a.incidence i
-        JOIN FETCH i.reports r 
-        JOIN FETCH i.publication p 
-        JOIN FETCH i.moderator m
         JOIN FETCH a.newModerator nm
         JOIN FETCH a.seller s 
         WHERE a.newModerator.id = :userId
@@ -38,6 +36,19 @@ public interface AppealRepository extends JpaRepository<Appeal,Long> {
         WHERE a.newModerator.id = :userId
     """)
     Page<Appeal> findAppealsByUserId(Long userId, Pageable pageable);
+
+    @Query(value = """
+        SELECT DISTINCT a 
+        FROM Appeal a 
+        JOIN FETCH a.incidence i
+        JOIN FETCH i.reports r 
+        JOIN FETCH i.publication p 
+        JOIN FETCH i.moderator m
+        JOIN FETCH a.newModerator nm
+        JOIN FETCH a.seller s 
+        WHERE a.id = :appealId
+    """)
+    Optional<Appeal> findAppealByUserId(Long appealId);
 
     @Query("""
         SELECT COUNT(a) > 0

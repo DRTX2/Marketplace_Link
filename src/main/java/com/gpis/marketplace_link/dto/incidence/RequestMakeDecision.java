@@ -16,11 +16,11 @@ public class RequestMakeDecision {
     @JsonProperty("incidence_id")
     private UUID publicIncidenceUi;
 
-    @Size(min = 10, max = 255)
-    @NotNull(message = "Comment must not be null")
+    @Size(min = 10, max = 255, message = "El comentario debe tener entre 10 y 255 caracteres")
+    @NotNull(message = "El comentario no debe ser nulo")
     private String comment;
 
-    @NotNull(message = "Decision must not be null")
+    @NotNull(message = "La decision no debe ser nula")
     private IncidenceDecision decision;
 
 }

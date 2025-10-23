@@ -80,4 +80,14 @@ public class PublicationSpecifications {
         };
     }
 
+    public static Specification<Publication> vendorAccountStatusIs(String status) {
+        return (root, query, builder) ->
+                status == null ? null : builder.equal(root.get("vendor").get("accountStatus"), status);
+    }
+
+
+    public static Specification<Publication> vendorAccountStatusIsActive() {
+        return vendorAccountStatusIs("ACTIVE");
+    }
+
 }

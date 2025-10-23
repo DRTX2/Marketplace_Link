@@ -11,16 +11,16 @@ import lombok.Setter;
 @Setter
 public class RequestUserReport {
 
-    @NotNull(message = "Publication ID is required")
+    @NotNull(message = "El identificador de la publicacion es requerido.")
     @JsonProperty("publication_id")
     private Long publicationId;
 
-    @Size(min = 10, max = 100, message = "Reason must be between 10 and 100 characters")
-    @NotBlank(message = "Reason is required")
+    @Size(min = 3, max = 30, message = "El motivo debe tener entre 10 y maximo 30 caracteres.")
+    @NotBlank(message = "El motivo es requerido.")
     private String reason;
 
-    @Size(max = 255, message = "Comment must be at most 255 characters")
-    @NotBlank(message = "Comment is required")
+    @Size(max = 255, message = "El comentario debe tener como maximo 255 caracteres.")
+    @NotBlank(message = "El campo comentario es requerido.")
     private String comment;
 
 }

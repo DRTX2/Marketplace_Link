@@ -21,7 +21,7 @@ public class Incidence {
     private Long id;
 
     @Column(name = "public_ui",nullable = false, unique = true, updatable = false)
-    private UUID publicId = UUID.randomUUID();
+    private UUID publicUi = UUID.randomUUID();
 
     @ManyToOne()
     @JoinColumn(name = "publication_id")
@@ -54,6 +54,9 @@ public class Incidence {
         createdAt = LocalDateTime.now();
         if (status == null) {
             status = IncidenceStatus.OPEN;
+        }
+        if (decision == null) {
+            decision = IncidenceDecision.PENDING;
         }
         autoclosed = false;
     }
