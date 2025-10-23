@@ -103,6 +103,14 @@ public class BusinessAdvice {
         return pd;
     }
 
+    @ExceptionHandler(UserBlockedException.class)
+    public ProblemDetail handleUserBlocked(UserBlockedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setTitle("User Blocked");
+        pd.setProperty("blocked_until", ex.getBlockedUntil());
+        return pd;
+    }
+
     // --- apelaciones ---
     @ExceptionHandler(UnauthorizedAppealDecisionException.class)
     public ProblemDetail handleUnauthorizedAppealDecision(UnauthorizedAppealDecisionException ex) {

@@ -12,6 +12,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/incidences")
@@ -27,7 +29,7 @@ public class IncidenceController {
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/all")
-    public Page<IncidenceDetailsResponse> fetchAllUnreviewed(
+    public Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -37,12 +39,25 @@ public class IncidenceController {
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/my")
-    public Page<IncidenceDetailsResponse> fetchMyReviewed(
+    public Page<IncidenceSimpleDetailsResponse> fetchMyReviewed(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
         return incidenceService.fetchAllReviewed(pageable);
+    }
+
+    // El usuario piensa que es id, pero en realidad se refiere al publicUi y asi se evita exponer ids secuenciales
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @GetMapping("/{publicUi}")
+    public IncidenceDetailsResponse fetchById(@PathVariable UUID publicUi) {
+        return incidenceService.fetchByPublicUi(publicUi);
+    }
+
+    @PreAuthorize("hasRole('SELLER')")
+    @GetMapping("/p/{publicUi}")
+    public IncidenceDetailsResponse fetchByIdForSeller(@PathVariable UUID publicUi) {
+        return incidenceService.fetchByPublicUiForSeller(publicUi);
     }
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
@@ -57,7 +72,7 @@ public class IncidenceController {
         return incidenceService.makeDecision(req);
     }
 
-    @PreAuthorize("hasRole('SELLER')")
+    @PreAuthorize("hasAnyRole('SELLER')")
     @PostMapping("/appeal")
     public AppealResponse appealIncidence(@Valid @RequestBody RequestAppealIncidence req) {
         return incidenceService.appeal(req);

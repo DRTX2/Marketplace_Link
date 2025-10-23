@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.rest;
 
 import com.gpis.marketplace_link.dto.appeal.AppealDetailsResponse;
+import com.gpis.marketplace_link.dto.appeal.AppealSimpleDetailsResponse;
 import com.gpis.marketplace_link.dto.appeal.AppealSimpleResponse;
 import com.gpis.marketplace_link.dto.appeal.MakeAppealDecisionRequest;
 import com.gpis.marketplace_link.services.appeal.AppealService;
@@ -22,13 +23,20 @@ public class AppealController {
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/my")
-    public Page<AppealDetailsResponse> fetchMyAppeals(
+    public Page<AppealSimpleDetailsResponse> fetchMyAppeals(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
         return appealService.fetchAll(pageable);
     }
+
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @GetMapping("/{appealId}")
+    public AppealDetailsResponse fetchAppealDetails(@PathVariable Long appealId) {
+        return appealService.fetchAppealDetails(appealId);
+    }
+
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @PostMapping("/decision")

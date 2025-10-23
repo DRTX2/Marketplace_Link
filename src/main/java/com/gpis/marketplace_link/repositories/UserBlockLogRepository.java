@@ -23,4 +23,17 @@ public interface UserBlockLogRepository extends JpaRepository<UserBlockLog, Long
             @Param("now") LocalDateTime now
     );
 
+    @Query("""
+        SELECT u FROM UserBlockLog u
+        WHERE u.user.id = :userId
+        AND u.blockedAction = 'REPORT'
+        AND u.targetPublication.id = :publicationId
+        ORDER BY u.blockedUntil DESC
+        LIMIT 1
+    """)
+    Optional<UserBlockLog> findLastBlockForReport(
+            @Param("userId") Long userId,
+            @Param("publicationId") Long publicationId
+    );
+
 }

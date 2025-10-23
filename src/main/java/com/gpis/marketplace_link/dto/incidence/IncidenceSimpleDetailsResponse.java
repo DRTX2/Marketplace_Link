@@ -7,12 +7,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Setter
-public class IncidenceDetailsResponse {
+public class IncidenceSimpleDetailsResponse {
 
     @JsonProperty("incidence_id")
     private UUID publicIncidenceUi;
@@ -28,14 +27,6 @@ public class IncidenceDetailsResponse {
     @JsonProperty("auto_closed")
     private Boolean autoClosed;
 
-    @JsonProperty("moderator_comment")
-    private String moderatorComment;
-
-    // Publicacion...
     private SimplePublicationResponse publication;
-
-    // Reportes...
-    private List<SimpleReportResponse> reports;
-
 
 }

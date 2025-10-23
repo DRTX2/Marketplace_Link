@@ -49,5 +49,8 @@ public class Appeal {
     @PrePersist
     protected void prePersist() {
         this.createdAt = LocalDateTime.now();
+        if (finalDecision == null) {
+            finalDecision = AppealDecision.PENDING;
+        }
     }
 }
