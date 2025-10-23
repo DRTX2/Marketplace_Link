@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -130,6 +131,8 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
         WHERE i.publicUi = :publicUi
     """)
     Optional<Incidence> findbyPublicUiWithPublication(UUID publicUi);
+
+    List<Incidence> findAllByModeratorIdAndStatusIn(Long moderatorId, Collection<IncidenceStatus> statuses);
 
 
 }
