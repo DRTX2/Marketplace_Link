@@ -20,7 +20,6 @@ public class FavoritePublicationController {
 
     private final FavoritePublicationService favoritePublicationService;
 
-     // api/publications/{id}/favorite?userId={userId}
     @PostMapping("/publications/{publicationId}/favorite")
     public ResponseEntity<FavoritePublicationResponse> addFavorite(
             @PathVariable Long publicationId,
@@ -30,7 +29,6 @@ public class FavoritePublicationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // api/publications/{id}/favorite?userId={userId}
     @DeleteMapping("/publications/{publicationId}/favorite")
     public ResponseEntity<Void> removeFavorite(
             @PathVariable Long publicationId,
@@ -53,7 +51,6 @@ public class FavoritePublicationController {
         return ResponseEntity.ok(favorites);
     }
 
-    // api/publications/{id}/favorite/check?userId={userId}
     @GetMapping("/publications/{publicationId}/favorite/check")
     public ResponseEntity<Boolean> isFavorite(
             @PathVariable Long publicationId,

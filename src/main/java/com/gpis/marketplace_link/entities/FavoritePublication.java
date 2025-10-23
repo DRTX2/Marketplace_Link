@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SoftDelete;
+import org.hibernate.annotations.SoftDeleteType;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +18,8 @@ import java.time.LocalDateTime;
 )
 @Data
 @NoArgsConstructor
+@SoftDelete(strategy = SoftDeleteType.DELETED)
+@AllArgsConstructor
 public class FavoritePublication {
 
     @Id
@@ -32,6 +36,9 @@ public class FavoritePublication {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "deleted", insertable = false, updatable = false)
+    private Boolean deleted;
 
     @PrePersist
     public void prePersist() {

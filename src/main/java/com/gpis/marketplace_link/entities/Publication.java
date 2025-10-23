@@ -47,6 +47,10 @@ public class Publication {
     @Column(nullable = false)
     private PublicationStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_status")
+    private PublicationStatus previousStatus;
+
     @Column(name = "publication_date")
     private LocalDateTime publicationDate;
 

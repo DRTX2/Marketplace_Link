@@ -6,12 +6,16 @@ import com.gpis.marketplace_link.entities.Role;
 import com.gpis.marketplace_link.entities.User;
 import com.gpis.marketplace_link.enums.AccountStatus;
 import com.gpis.marketplace_link.enums.EmailType;
+import com.gpis.marketplace_link.exceptions.business.publications.PublicationCanNotDeleteException;
 import com.gpis.marketplace_link.exceptions.business.users.AccountBlockedException;
 import com.gpis.marketplace_link.exceptions.business.users.AccountInactiveException;
 import com.gpis.marketplace_link.exceptions.business.users.AccountPendingVerificationException;
 import com.gpis.marketplace_link.mail.PasswordResetUrl;
 import com.gpis.marketplace_link.repositories.UserRepository;
 import com.gpis.marketplace_link.services.NotificationService;
+import com.gpis.marketplace_link.services.publications.DeletePublicationByVendorUseCase;
+import com.gpis.marketplace_link.services.publications.PublicationService;
+import com.gpis.marketplace_link.services.user.usecases.ReleaseModeratorAssignmentsUseCase;
 import com.gpis.marketplace_link.specifications.UserSpecifications;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +43,8 @@ public class UserService {
     private static final String MSG_PASSWORDS_MISMATCH = "Las contraseñas no coinciden";
     private static final String MSG_PASSWORD_SAME = "La nueva contraseña no puede ser igual a la actual";
     private static final String MSG_SOFT_DELETE_FAIL = "No se pudo realizar el borrado lógico del usuario";
+    private static final String MSG_BLOCK_CHAIN_FAIL = "No se pudo bloquear al usuario ni eliminar sus publicaciones asociadas";
+    private static final String MSG_MODERATOR_RELEASE_FAIL = "No se pudo liberar las incidencias y apelaciones asignadas al moderador";
 
     private final UserRepository userRepo;
     private final RoleService roleService;
@@ -46,6 +52,9 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordResetService passwordResetService;
     private final NotificationService notificationService;
+    private final PublicationService publicationService;
+    private final DeletePublicationByVendorUseCase deletePublicationByVendorUseCase;
+    private final ReleaseModeratorAssignmentsUseCase releaseModeratorAssignmentsUseCase;
 
     public UserService(
             UserRepository userRepo,
@@ -53,7 +62,10 @@ public class UserService {
             PasswordEncoder passwordEncoder,
             EmailVerificationService emailVerificationService,
             @Lazy PasswordResetService passwordResetService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            PublicationService publicationService,
+            DeletePublicationByVendorUseCase deletePublicationByVendorUseCase,
+            ReleaseModeratorAssignmentsUseCase releaseModeratorAssignmentsUseCase
     ) {
         this.userRepo = userRepo;
         this.roleService = roleService;
@@ -61,6 +73,9 @@ public class UserService {
         this.emailVerificationService = emailVerificationService;
         this.passwordResetService = passwordResetService;
         this.notificationService = notificationService;
+        this.publicationService = publicationService;
+        this.deletePublicationByVendorUseCase = deletePublicationByVendorUseCase;
+        this.releaseModeratorAssignmentsUseCase = releaseModeratorAssignmentsUseCase;
     }
 
     @Value("${moderator.default-password}")
@@ -229,15 +244,41 @@ public class UserService {
     @Transactional
     public void blockUser(Long userId) {
         var user = userRepo.findById(userId).orElseThrow(this::notFound);
-        if (user.getAccountStatus() != AccountStatus.BLOCKED) {
-            user.setAccountStatus(AccountStatus.BLOCKED);
-            userRepo.save(user);
+        if (user.getAccountStatus() == AccountStatus.BLOCKED) return;
+
+        if (isModerator(user)) {
+            try {
+                releaseModeratorAssignmentsUseCase.release(userId);
+            } catch (RuntimeException ex) {
+                log.error("Error releasing moderator assignments for user {}: {}", userId, ex.getMessage(), ex);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, MSG_MODERATOR_RELEASE_FAIL, ex);
+            }
         }
+
+        try {
+            publicationService.blockPublicationsByVendor(userId);
+        } catch (RuntimeException ex) {
+            log.error("Error blocking user {}: {}", userId, ex.getMessage(), ex);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, MSG_BLOCK_CHAIN_FAIL, ex);
+        }
+
+        user.setAccountStatus(AccountStatus.BLOCKED);
+        userRepo.save(user);
     }
 
     @Transactional
     public void unblockUser(Long userId) {
         var user = userRepo.findById(userId).orElseThrow(this::notFound);
+
+        if (user.getAccountStatus() == AccountStatus.BLOCKED) {
+            try {
+                publicationService.restorePublicationsByVendor(userId);
+            } catch (RuntimeException ex) {
+                log.error("Error unblocking user {}: {}", userId, ex.getMessage(), ex);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, MSG_BLOCK_CHAIN_FAIL, ex);
+            }
+        }
+
         if (user.getAccountStatus() != AccountStatus.ACTIVE) {
             user.setAccountStatus(AccountStatus.ACTIVE);
             userRepo.save(user);
@@ -246,7 +287,26 @@ public class UserService {
 
     @Transactional
     public void desactivateUser(Long userId) {
-        userRepo.findById(userId).orElseThrow(this::notFound);
+        var user = userRepo.findById(userId).orElseThrow(this::notFound);
+
+        if (isModerator(user)) {
+            try {
+                releaseModeratorAssignmentsUseCase.release(userId);
+            } catch (RuntimeException ex) {
+                log.error("Error releasing moderator assignments for user {}: {}", userId, ex.getMessage(), ex);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, MSG_MODERATOR_RELEASE_FAIL, ex);
+            }
+        }
+
+        try {
+            deletePublicationByVendorUseCase.softDelete(userId);
+        } catch (PublicationCanNotDeleteException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
+            log.error("Error deactivating user {}: {}", userId, ex.getMessage(), ex);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, MSG_BLOCK_CHAIN_FAIL, ex);
+        }
+
         if (userRepo.deactivateById(userId) == 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_SOFT_DELETE_FAIL);
     }
@@ -255,6 +315,14 @@ public class UserService {
     public void activateUser(Long userId) {
         if (userRepo.activateById(userId) == 0)
             throw notFoundWith(" con ID: " + userId);
+    }
+
+    private boolean isModerator(User user) {
+        Set<Role> roles = user.getRoles();
+        if (roles == null) {
+            return false;
+        }
+        return roles.stream().anyMatch(role -> "ROLE_MODERATOR".equals(role.getName()));
     }
 
     private void apply(User existing, User draft) {
