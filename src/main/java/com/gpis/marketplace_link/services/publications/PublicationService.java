@@ -30,11 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,9 +47,10 @@ public class PublicationService {
     private final CategoryRepository categoryRepository;
     private final ImageValidationService imageValidationService;
     private final IncidenceService incidenceService;
+    private final FavoritePublicationService favoritePublicationService;
     private static final Logger logger = LoggerFactory.getLogger(PublicationService.class);
 
-    public PublicationService(PublicationRepository repository, PublicationMapper mapper, FileStorageService fileStorageService, UserRepository userRepository, CategoryRepository categoryRepository, ImageValidationService imageValidationService, IncidenceServiceImp incidenceServiceImp, DangerousContentDetectedService dangerousContentDetectedService) {
+    public PublicationService(PublicationRepository repository, PublicationMapper mapper, FileStorageService fileStorageService, UserRepository userRepository, CategoryRepository categoryRepository, ImageValidationService imageValidationService, IncidenceServiceImp incidenceServiceImp, DangerousContentDetectedService dangerousContentDetectedService, FavoritePublicationService favoritePublicationService) {
         this.repository = repository;
         this.mapper = mapper;
         this.fileStorageService = fileStorageService;
@@ -59,6 +59,7 @@ public class PublicationService {
         this.categoryRepository = categoryRepository;
         this.imageValidationService = imageValidationService;
         this.dangerousContentDetectedService = dangerousContentDetectedService;
+        this.favoritePublicationService = favoritePublicationService;
     }
 
     @Transactional(readOnly = true)
@@ -70,7 +71,8 @@ public class PublicationService {
                         .and(PublicationSpecifications.notSuspended())
                         .and(PublicationSpecifications.hasAnyCategory(categoryIds))
                         .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
-                        .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm));
+                        .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm))
+                        .and(PublicationSpecifications.vendorAccountStatusIsActive());
 
         Page<Publication> publications = repository.findAll(spec, pageable);
 
@@ -187,33 +189,68 @@ public class PublicationService {
 
     }
 
-    public void delete(Long id) {
-
-        Publication publication = this.repository.findById(id)
-                .orElseThrow(() -> new PublicationNotFoundException(
-                        "Publicación con id " + id + " no encontrada"));
-
-        if (publication.getStatus() == PublicationStatus.UNDER_REVIEW ||
-                publication.getStatus() == PublicationStatus.BLOCKED) {
-
-            throw new PublicationCanNotDeleteException("No se puede eliminar la publicación debido a que se encuentra en revision o bloqueada");
-
+    @Transactional
+    public void blockPublicationsByVendor(Long vendorId) {
+        List<Publication> publications = repository.findAllByVendorIdAndDeletedAtIsNull(vendorId);
+        List<Publication> toUpdate = new ArrayList<>();
+        for (Publication publication : publications) {
+            if (publication.getStatus() != PublicationStatus.BLOCKED) {
+                publication.setPreviousStatus(publication.getStatus());
+                publication.setStatus(PublicationStatus.BLOCKED);
+            }
+            favoritePublicationService.removeFavoritesByPublicationId(publication.getId());
+            toUpdate.add(publication);
         }
-
-        publication.setDeletedAt(LocalDateTime.now());
-
-        List<PublicationImage> images = publication.getImages();
-
-        for (PublicationImage img : images) {
-            fileStorageService.deleteFile(img.getPath());
+        if (!toUpdate.isEmpty()) {
+            repository.saveAll(toUpdate);
         }
-
-        this.repository.save(publication);
-
-
-
     }
 
+    @Transactional
+    public void restorePublicationsByVendor(Long vendorId) {
+        List<Publication> publications = repository.findAllByVendorIdAndDeletedAtIsNull(vendorId);
+        List<Publication> toUpdate = new ArrayList<>();
+        for (Publication publication : publications) {
+            if (publication.getStatus() == PublicationStatus.BLOCKED) {
+                PublicationStatus previous = publication.getPreviousStatus() != null
+                        ? publication.getPreviousStatus()
+                        : PublicationStatus.VISIBLE;
+                publication.setStatus(previous);
+                publication.setPreviousStatus(null);
+                favoritePublicationService.restoreFavoritesByPublicationId(publication.getId());
+                toUpdate.add(publication);
+            }
+        }
+        if (!toUpdate.isEmpty()) {
+            repository.saveAll(toUpdate);
+        }
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        Publication publication = repository.findByIdWithImages(id)
+                .orElseThrow(() -> new PublicationNotFoundException("Publication con id " + id + " no encontrada"));
+
+        if (publication.getStatus() == PublicationStatus.UNDER_REVIEW
+                || publication.getStatus() == PublicationStatus.BLOCKED) {
+            throw new PublicationCanNotDeleteException("No se puede eliminar la publicación debido a que se encuentra en revision o bloqueada");
+        }
+
+        favoritePublicationService.removeFavoritesByPublicationId(publication.getId());
+
+        List<String> imagePaths = publication.getImages().stream()
+                .map(PublicationImage::getPath)
+                .filter(Objects::nonNull)
+                .toList();
+
+        publication.setDeletedAt(LocalDateTime.now());
+        publication.setPreviousStatus(null);
+
+        repository.save(publication);
+
+        for (String path : imagePaths) fileStorageService.deleteFile(path);
+
+    }
 
     public void suspendedPublicationsOlderThan(Integer limit) {
 
@@ -240,7 +277,8 @@ public class PublicationService {
                 PublicationSpecifications.idIs(id)
                         .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
                         .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.notSuspended());
+                        .and(PublicationSpecifications.notSuspended())
+                        .and(PublicationSpecifications.vendorAccountStatusIsActive());
 
         return repository.findOne(spec)
                 .orElseThrow(() -> new PublicationNotFoundException(
@@ -292,6 +330,5 @@ public class PublicationService {
             throw new UserIsNotVendorException("El usuario no es vendedor");
         }
     }
-
 
 }
