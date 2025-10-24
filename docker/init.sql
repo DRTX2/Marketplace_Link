@@ -315,6 +315,8 @@ VALUES
     ((SELECT id FROM users WHERE username = 'moderator_three'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR'))
     ON CONFLICT (user_id, role_id) DO NOTHING;
 
+
+
 -- ======================
 -- Inserción de categorías iniciales
 -- ======================

@@ -13,14 +13,23 @@ public final class Messages {
     public static final String MODERATOR_NOT_FOUND = "Moderador no encontrado con id=";
     public static final String ACCESS_DENIED_TO_FIND_INCIDENCE = "No tienes permiso para acceder a esta incidencia";
     public static final String SELLER_NOT_OWNER_OF_PUBLICATION = "No eres el propietario de la publicacion.";
+    public static final String ACCESS_DENIED_TO_CLAIM_INCIDENCE= "El usuario se encuentra bloqueado o deshabilitado, por tanto no puedes reclamar esta incidencia.";
+    public static final String USER_ID_PROJECTION_NOT_FOUND = "Proyección de ID de usuario no encontrada para la incidencia con id=";
+    public static final String USER_NOT_FOUND= "Usuario no encontrado con id=";
 
     // === PUBLICACIONES ===
     public static final String PUBLICATION_NOT_FOUND ="Publicación no encontrada con id=";
+    public static final String LIGHT_PUBLICATION_NOT_FOUND= "Publicación ligera no encontrada con id=";
 
     // === INCIDENCIAS ===
     public static final String INCIDENCE_NOT_FOUND = "Incidencia no encontrada con id=";
     public static final String INCIDENCE_PENDING_REVIEW_CANNOT_ADD_REPORT =   "No puedes agregar un reporte a una incidencia que ya está pendiente de revisión.";
     public static final String INCIDENCE_UNDER_REVIEW_CANNOT_ADD_REPORT = "No puedes agregar un reporte a una incidencia que está en revisión.";
+    public static final String INCIDENCE_PROJECTION_NOT_FOUND = "Proyección de incidencia no encontrada con id=";
+    public static final String LIGHT_INCIDENCE_NOT_FOUND = "Incidencia ligera no encontrada con id=";
+    public static final String SELLER_NOT_ACTIVE_CANNOT_APPEAL= "El vendedor no está activo y no puede apelar la incidencia.";
+    public static final String VENDOR_ID_PROJECTION_NOT_FOUND="Proyección de ID de vendedor no encontrada para la incidencia con id=";
+    public static final String ACCESS_DENIED_TO_MAKE_DECISION_INCIDENCE="El usuario se encuentra bloqueado o deshabilitado, por tanto no puedes tomar una decisión sobre esta incidencia.";
 
     // === BLOQUEOS ===
     public static final String REPORTER_BLOCKED_FROM_REPORTING = "No puedes reportar esta publicación hasta ";

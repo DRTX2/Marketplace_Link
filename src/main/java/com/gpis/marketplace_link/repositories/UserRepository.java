@@ -1,5 +1,6 @@
 package com.gpis.marketplace_link.repositories;
 
+import com.gpis.marketplace_link.dto.incidence.projections.UserIdProjection;
 import com.gpis.marketplace_link.entities.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -171,5 +172,22 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
         WHERE id = :id AND deleted = true
         """, nativeQuery = true)
     int activateById(@Param("id") Long id);
+
+    @Query(
+            value = """
+        SELECT CASE WHEN COUNT(u.id) > 0 THEN TRUE ELSE FALSE END
+        FROM users u
+        WHERE u.id = :vendorId
+          AND u.deleted = FALSE
+          AND u.account_status = 'ACTIVE'
+        """,
+            nativeQuery = true
+    )
+    boolean existsByIdNative(@Param("vendorId") Long vendorId);
+
+
+    @Query(value = "SELECT * FROM users WHERE id = :userId", nativeQuery = true)
+    Optional<User> findByIdNative(@Param("userId") Long userId);
+
 
 }
