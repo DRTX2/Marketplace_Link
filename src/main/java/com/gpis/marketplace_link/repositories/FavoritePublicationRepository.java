@@ -4,6 +4,7 @@ import com.gpis.marketplace_link.entities.FavoritePublication;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -28,5 +29,14 @@ public interface FavoritePublicationRepository extends JpaRepository<FavoritePub
     )
     Page<FavoritePublication> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
+    List<FavoritePublication> findAllByPublicationId(Long publicationId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE favorite_publications SET deleted = true WHERE publication_id = :publicationId", nativeQuery = true)
+    int softDeleteAllByPublicationId(@Param("publicationId") Long publicationId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE favorite_publications SET deleted = false WHERE publication_id = :publicationId", nativeQuery = true)
+    int restoreAllByPublicationId(@Param("publicationId") Long publicationId);
 }
 

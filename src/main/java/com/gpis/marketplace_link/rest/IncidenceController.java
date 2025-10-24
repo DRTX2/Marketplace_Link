@@ -51,13 +51,13 @@ public class IncidenceController {
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/{publicUi}")
     public IncidenceDetailsResponse fetchById(@PathVariable UUID publicUi) {
-        return incidenceService.fetchByPublicUi(publicUi);
+        return incidenceService.fetchByPublicUiNativeProjection(publicUi);
     }
 
     @PreAuthorize("hasRole('SELLER')")
     @GetMapping("/p/{publicUi}")
     public IncidenceDetailsResponse fetchByIdForSeller(@PathVariable UUID publicUi) {
-        return incidenceService.fetchByPublicUiForSeller(publicUi);
+        return incidenceService.fetchByPublicUiForSellerNativeProjection(publicUi);
     }
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")

@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -73,9 +72,18 @@ public class FavoritePublicationService {
         return favoritesPage.map(favoritePublicationMapper::toResponse);
     }
 
-
     @Transactional(readOnly = true)
     public boolean isFavorite(Long userId, Long publicationId) {
         return favoritePublicationRepository.existsByUserIdAndPublicationId(userId, publicationId);
+    }
+
+    @Transactional
+    public void removeFavoritesByPublicationId(Long publicationId) {
+        favoritePublicationRepository.softDeleteAllByPublicationId(publicationId);
+    }
+
+    @Transactional
+    public void restoreFavoritesByPublicationId(Long publicationId) {
+        favoritePublicationRepository.restoreAllByPublicationId(publicationId);
     }
 }

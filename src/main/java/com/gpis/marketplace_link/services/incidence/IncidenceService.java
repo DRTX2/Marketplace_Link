@@ -13,8 +13,8 @@ public interface IncidenceService {
     ReportResponse reportByUser(RequestUserReport req);
     ReportResponse reportBySystem(RequestSystemReport req);
     Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(Pageable pageable);
-    IncidenceDetailsResponse fetchByPublicUi(UUID publicUi);
-    IncidenceDetailsResponse fetchByPublicUiForSeller(UUID publicUi);
+    IncidenceDetailsResponse fetchByPublicUiNativeProjection(UUID publicUi);
+    IncidenceDetailsResponse fetchByPublicUiForSellerNativeProjection(UUID publicUi);
     Page<IncidenceSimpleDetailsResponse> fetchAllReviewed(Pageable pageable);
     ClaimIncidenceResponse claim(RequestClaimIncidence req);
     DecisionResponse makeDecision(RequestMakeDecision req);

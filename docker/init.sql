@@ -28,7 +28,7 @@ CREATE TABLE users (
     gender           VARCHAR(10),
     account_status   VARCHAR(30)  NOT NULL DEFAULT 'PENDING_VERIFICATION',
     email_verified_at TIMESTAMP NULL,
-   created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
 
@@ -39,6 +39,9 @@ CREATE TABLE users (
     CONSTRAINT uk_user_phone    UNIQUE (phone),
     CONSTRAINT uk_user_cedula   UNIQUE (cedula)
 );
+
+CREATE INDEX idx_users_account_status
+    ON users (account_status);
 
 -- ======================
 -- Tabla intermedia: users_roles
@@ -123,7 +126,8 @@ CREATE TABLE IF NOT EXISTS categories (
 
 
 -- ======================
--- Tabla: publications
+-- Tabla:
+-- tions
 -- ======================
 CREATE TABLE IF NOT EXISTS publications (
     id BIGSERIAL PRIMARY KEY,
@@ -134,6 +138,7 @@ CREATE TABLE IF NOT EXISTS publications (
     price DECIMAL(10,2) NOT NULL,
     availability VARCHAR(20) NOT NULL  DEFAULT 'AVAILABLE', -- AVAILABLE, UNAVAILABLE
     status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE', -- VISIBLE,  UNDER_REVIEW , BLOCKED,
+    previous_status VARCHAR(20),
     publication_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     location geography(Point, 4326), --WGS 84 empleado para sistemas GPS
     category_id BIGINT NOT NULL,
@@ -168,12 +173,13 @@ CREATE TABLE IF NOT EXISTS publication_images (
 -- Tabla: favorite_publications
 -- ======================
 CREATE TABLE IF NOT EXISTS favorite_publications (
-                                                     id BIGSERIAL PRIMARY KEY,
-                                                     user_id BIGINT NOT NULL,
-                                                     publication_id BIGINT NOT NULL,
-                                                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    publication_id BIGINT NOT NULL,
+    deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-                                                     CONSTRAINT uk_user_publication UNIQUE (user_id, publication_id),
+    CONSTRAINT uk_user_publication UNIQUE (user_id, publication_id),
 
     CONSTRAINT fk_favorite_publications_user
     FOREIGN KEY (user_id)
@@ -184,7 +190,7 @@ CREATE TABLE IF NOT EXISTS favorite_publications (
     FOREIGN KEY (publication_id)
     REFERENCES publications(id)
     ON DELETE CASCADE
-    );
+);
 
 
 
@@ -308,6 +314,8 @@ VALUES
     ((SELECT id FROM users WHERE username = 'moderator_two'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
     ((SELECT id FROM users WHERE username = 'moderator_three'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR'))
     ON CONFLICT (user_id, role_id) DO NOTHING;
+
+
 
 -- ======================
 -- Inserción de categorías iniciales
