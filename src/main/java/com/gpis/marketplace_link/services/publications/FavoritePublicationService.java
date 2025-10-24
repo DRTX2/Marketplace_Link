@@ -18,7 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,10 +40,30 @@ public class FavoritePublicationService {
         Publication publication = publicationRepository.findById(publicationId)
                 .orElseThrow(() -> new PublicationNotFoundException("Publicación con ID " + publicationId + " no encontrada"));
 
-        if (favoritePublicationRepository.existsByUserIdAndPublicationId(userId, publicationId)) {
-            throw new FavoriteAlreadyExistsException("Esta publicación ya está marcada como favorita");
+        // Buscar cualquier registro, incluso si está marcado como deleted (consulta nativa)
+        Optional<FavoritePublication> anyOpt = favoritePublicationRepository.findAnyByUserIdAndPublicationId(userId, publicationId);
+
+        if (anyOpt.isPresent()) {
+            FavoritePublication existing = anyOpt.get();
+            // Si el registro existe y no está borrado, es un duplicado
+            if (existing.getDeleted() == null || !existing.getDeleted()) {
+                throw new FavoriteAlreadyExistsException("Esta publicación ya está marcada como favorita");
+            }
+
+            // Está marcado como borrado (soft-deleted): restaurar
+            int updated = favoritePublicationRepository.restoreByUserIdAndPublicationId(userId, publicationId);
+            if (updated > 0) {
+                // Recuperar el registro restaurado (ahora visible para JPA)
+                FavoritePublication restored = favoritePublicationRepository.findByUserIdAndPublicationId(userId, publicationId)
+                        .orElse(null);
+                if (restored != null) {
+                    return favoritePublicationMapper.toResponse(restored);
+                }
+            }
+            // Si por alguna razón no se recuperó, continuamos para crear uno nuevo (aunque esto no debería pasar)
         }
 
+        // No existe: crear uno nuevo
         FavoritePublication favorite = new FavoritePublication();
         favorite.setUser(user);
         favorite.setPublication(publication);

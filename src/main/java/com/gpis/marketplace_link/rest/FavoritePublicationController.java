@@ -1,6 +1,7 @@
 package com.gpis.marketplace_link.rest;
 
 import com.gpis.marketplace_link.dto.publication.response.FavoritePublicationResponse;
+import com.gpis.marketplace_link.security.service.SecurityService;
 import com.gpis.marketplace_link.services.publications.FavoritePublicationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,34 +19,32 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FavoritePublicationController {
 
+    private final SecurityService securityService;
     private final FavoritePublicationService favoritePublicationService;
 
     @PostMapping("/publications/{publicationId}/favorite")
     public ResponseEntity<FavoritePublicationResponse> addFavorite(
-            @PathVariable Long publicationId,
-            @RequestParam Long userId) {
-
+            @PathVariable Long publicationId) {
+        Long userId = securityService.getCurrentUserId();
         FavoritePublicationResponse response = favoritePublicationService.addFavorite(userId, publicationId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/publications/{publicationId}/favorite")
     public ResponseEntity<Void> removeFavorite(
-            @PathVariable Long publicationId,
-            @RequestParam Long userId) {
-
+            @PathVariable Long publicationId) {
+        Long userId = securityService.getCurrentUserId();
         favoritePublicationService.removeFavorite(userId, publicationId);
         return ResponseEntity.noContent().build();
     }
 
-    // api/users/{id}/favorites
-    @GetMapping("/users/{userId}/favorites")
+    @GetMapping("/users/favorites")
     public ResponseEntity<Page<FavoritePublicationResponse>> getUserFavorites(
-            @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy
     ){
+        Long userId = securityService.getCurrentUserId();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, sortBy));
         Page<FavoritePublicationResponse> favorites = favoritePublicationService.getUserFavorites(userId, pageable);
         return ResponseEntity.ok(favorites);
@@ -53,9 +52,8 @@ public class FavoritePublicationController {
 
     @GetMapping("/publications/{publicationId}/favorite/check")
     public ResponseEntity<Boolean> isFavorite(
-            @PathVariable Long publicationId,
-            @RequestParam Long userId) {
-
+            @PathVariable Long publicationId) {
+        Long userId = securityService.getCurrentUserId();
         boolean isFavorite = favoritePublicationService.isFavorite(userId, publicationId);
         return ResponseEntity.ok(isFavorite);
     }
