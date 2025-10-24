@@ -1,5 +1,9 @@
 package com.gpis.marketplace_link.repositories;
 
+import com.gpis.marketplace_link.dto.incidence.projections.IncidenceDetailsProjection;
+import com.gpis.marketplace_link.dto.incidence.projections.IncidencePublicationProjection;
+import com.gpis.marketplace_link.dto.incidence.projections.UserIdProjection;
+import com.gpis.marketplace_link.dto.incidence.projections.VendorIdProjection;
 import com.gpis.marketplace_link.entities.Incidence;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
 import org.springframework.data.domain.Page;
@@ -27,18 +31,12 @@ import java.util.UUID;
 public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
 
     /**
-     * Busca una incidencia asociada a una publicación específica que se encuentre en alguno de los estados indicados.
+     * Cierra automáticamente todas las incidencias con estado "OPEN"
+     * cuya última actividad (último reporte) sea anterior a la fecha indicada.
      *
-     * Este método se utiliza principalmente para verificar si ya existe una incidencia
-     * activa (por ejemplo, con estado {@code OPEN}, {@code UNDER_REVIEW} o {@code APPEALED})
-     * antes de crear una nueva.
-     *
-     * @param publicationId el ID de la publicación.
-     * @param status lista de estados válidos para filtrar la búsqueda.
-     * @return un {@link Optional} que contiene la incidencia si existe, o vacío si no se encontró.
+     * @param cutoff fecha límite; incidencias sin actividad más reciente que esta serán cerradas.
+     * @return número de incidencias actualizadas.
      */
-    Optional<Incidence> findByPublicationIdAndStatusIn(Long publicationId, List<IncidenceStatus> status);
-
     @Modifying
     @Query(value = """
         UPDATE incidences i
@@ -54,14 +52,25 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     int bulkAutoClose(@Param("cutoff") LocalDateTime cutoff);
 
     /**
-     * Obtiene todas las incidencias no revisadas con sus detalles completos.
+     * Busca una incidencia asociada a una publicación específica que se encuentre en alguno de los estados indicados.
      *
-     * Devuelve incidencias en estado {@code OPEN} que no han sido reclamadas por un moderador
-     * y que no tienen una decisión registrada. La consulta utiliza {@code JOIN FETCH}
-     * para cargar eficientemente la publicación y los reportes asociados, incluyendo
-     * los reportadores correspondientes.
+     * Este método se utiliza principalmente para verificar si ya existe una incidencia
+     * activa (por ejemplo, con estado {@code OPEN}, {@code PENDING_REVIEW},{@code UNDER_REVIEW} o {@code APPEALED})
+     * antes de crear una nueva.
      *
-     * @return lista de incidencias abiertas pendientes de revisión, con datos de publicación y reportes.
+     * @param publicationId el ID de la publicación.
+     * @param status lista de estados válidos para filtrar la búsqueda.
+     * @return un {@link Optional} que contiene la incidencia si existe, o vacío si no se encontró.
+     */
+    Optional<Incidence> findByPublicationIdAndStatusIn(Long publicationId, List<IncidenceStatus> status);
+
+    // Si el vendedor esta deshabilitado y la publicacion tiene fetch eager en el vendedor, esto muere
+    /**
+     * Obtiene todas las incidencias pendientes de revisión,
+     * es decir, aquellas sin moderador asignado y con decisión "PENDING".
+     *
+     * @param pageable información de paginación.
+     * @return página con las incidencias no revisadas y sus publicaciones asociadas.
      */
     @Query(
             value = """
@@ -86,26 +95,22 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     )
     Page<Incidence> findAllUnreviewedWithDetails(Pageable pageable);
 
-    @Query(
-            """
-        SELECT DISTINCT i FROM Incidence i
-        JOIN FETCH i.publication p
-        JOIN FETCH i.reports r
-        JOIN FETCH r.reporter
-        WHERE i.publicUi = :publicUi
-    """
-    )
-    Optional<Incidence> findByPublicUiWithDetails(UUID publicUi);
-
+    // Si el vendedor esta deshabilitado y la publicacion tiene fetch eager en el vendedor, esto muere
+    /**
+     * Obtiene todas las incidencias revisadas por un moderador específico.
+     * Incluye la información de la publicación asociada a cada incidencia.
+     *
+     * @param userId   identificador del moderador.
+     * @param pageable información de paginación.
+     * @return página con las incidencias revisadas y sus publicaciones.
+     */
     @Query(
             value =
-        """
-        SELECT DISTINCT i FROM Incidence i
-        JOIN FETCH i.publication p
-        JOIN FETCH i.reports r
-        JOIN FETCH r.reporter
-        WHERE i.moderator.id = :userId
-    """,
+                    """
+                    SELECT DISTINCT i FROM Incidence i
+                    JOIN FETCH i.publication p
+                    WHERE i.moderator.id = :userId
+                """,
             countQuery = """
         SELECT COUNT(i)
         FROM Incidence i
@@ -114,6 +119,56 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     )
     Page<Incidence> findAllReviewedWithDetails(Long userId, Pageable pageable);
 
+    /**
+     * Obtiene los detalles completos de una incidencia junto con sus reportes asociados.
+     * <p>
+     * Cada fila del resultado representa un reporte distinto de la misma incidencia.
+     * Si una incidencia tiene varios reportes, los datos de la incidencia se repiten
+     * pero cambian los campos correspondientes al reporte y su reportero.
+     *
+     * @param publicUi identificador público (UUID) de la incidencia.
+     * @return lista de proyecciones con los datos de la incidencia, publicación, reportes y reporteros.
+     */
+    @Query(
+            value = """
+        SELECT i.public_ui AS incidencePublicUi,
+               i.auto_closed AS incidenceAutoclosed,
+               i.created_at AS incidenceCreatedAt,
+               i.status AS incidenceStatus,
+               i.decision AS incidenceDecision,
+               i.moderator_id AS incidenceModeratorId,
+               i.moderator_comment AS incidenceModeratorComment,
+               p.id AS publicationId,
+               p.description AS publicationDescription,
+               p.status AS publicationStatus,
+               p.name AS publicationName,
+               p.vendor_id AS publicationVendorId,
+               u.id AS reporterId,
+               u.email AS reporterEmail,
+               CONCAT(u.first_name, ' ', u.last_name) AS reporterFullname,
+               r.id AS reportId,
+               r.comment AS reportComment,
+               r.reason AS reportReason,
+               r.created_at AS reportCreatedAt
+        FROM incidences i
+        JOIN publications p ON i.publication_id = p.id
+        JOIN reports r ON r.incidence_id = i.id
+        JOIN users u ON r.reporter_id = u.id
+        WHERE i.public_ui = :publicUi
+        """,
+            nativeQuery = true
+    )
+    List<IncidenceDetailsProjection> findByPublicUiWithDetailsNative(UUID publicUi);
+
+    List<Incidence> findAllByModeratorIdAndStatusIn(Long moderatorId, Collection<IncidenceStatus> statuses);
+
+    /**
+     * Verifica si una incidencia pertenece a un moderador específico.
+     *
+     * @param incidenceId identificador de la incidencia.
+     * @param moderatorId identificador del moderador.
+     * @return {@code true} si la incidencia fue asignada al moderador, de lo contrario {@code false}.
+     */
     @Query("""
         SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END
         FROM Incidence i
@@ -121,18 +176,39 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     """)
     boolean existsByIdAndModeratorId(Long incidenceId, Long moderatorId);
 
+    @Query(
+            value = """
+        SELECT v.id AS vendorId
+        FROM incidences i
+        JOIN publications p ON i.publication_id = p.id
+        JOIN users v ON p.vendor_id = v.id
+        WHERE i.public_ui = :publicUi
+        """,
+            nativeQuery = true
+    )
+    Optional<VendorIdProjection> findVendorIdByIncidencePublicUi(UUID publicUi);
+
     Optional<Incidence> findByPublicUi(UUID publicUi);
 
-    @Query("""
+    @Query(
+            value = """
+        SELECT u.id AS userId
+        FROM incidences i
+        JOIN publications p ON i.publication_id = p.id
+        JOIN users u ON p.vendor_id = u.id
+        WHERE i.public_ui = :publicUi
+        """,
+            nativeQuery = true
+    )
+    Optional<UserIdProjection> findUserIdByPublicUi(UUID publicUi);
+
+    @Query(value = """
         SELECT i
         FROM Incidence i
         JOIN FETCH i.publication p
         JOIN FETCH p.vendor v
         WHERE i.publicUi = :publicUi
     """)
-    Optional<Incidence> findbyPublicUiWithPublication(UUID publicUi);
-
-    List<Incidence> findAllByModeratorIdAndStatusIn(Long moderatorId, Collection<IncidenceStatus> statuses);
-
+    Optional<Incidence> findByPublicUiEager(UUID publicUi);
 
 }

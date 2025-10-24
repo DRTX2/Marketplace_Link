@@ -23,7 +23,7 @@ public class Incidence {
     @Column(name = "public_ui",nullable = false, unique = true, updatable = false)
     private UUID publicUi = UUID.randomUUID();
 
-    @ManyToOne()
+    @ManyToOne(fetch =  FetchType.LAZY)
     @JoinColumn(name = "publication_id")
     private Publication publication;
 
@@ -36,7 +36,7 @@ public class Incidence {
     @Column(name = "auto_closed")
     public Boolean autoclosed; // por default es false
 
-    @ManyToOne()
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moderator_id")
     private User moderator; // por default es null
 
