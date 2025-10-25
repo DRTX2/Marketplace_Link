@@ -8,6 +8,7 @@ import com.gpis.marketplace_link.dto.publication.response.PublicationSummaryResp
 import com.gpis.marketplace_link.entities.Publication;
 import com.gpis.marketplace_link.entities.PublicationImage;
 import com.gpis.marketplace_link.entities.User;
+import com.gpis.marketplace_link.enums.PublicationType;
 import com.gpis.marketplace_link.exceptions.business.publications.DangerousContentException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationCanNotDeleteException;
 import com.gpis.marketplace_link.exceptions.business.publications.PublicationNotFoundException;
@@ -144,6 +145,7 @@ public class PublicationService {
     @Transactional(noRollbackFor = DangerousContentException.class)
     public PublicationResponse update(Long id, PublicationUpdateRequest request) {
 
+        imageValidationService.validateImages(request.images());
 
         validateUserAndRole(request.vendorId());
 
@@ -154,6 +156,11 @@ public class PublicationService {
 
         publication.setVendor(userRepository.getReferenceById(request.vendorId()));
         publication.setCategory(categoryRepository.getReferenceById(request.categoryId()));
+        if (request.workingHours() != null) {
+            publication.setWorkingHours(request.workingHours());
+        }
+        publication.setType(publication.getWorkingHours() != null ? PublicationType.SERVICE : PublicationType.PRODUCT);
+
 
         Map<String, PublicationImage> existingMap = publication.getImages().stream()
                 .collect(Collectors.toMap(PublicationImage::getPath, img -> img));
