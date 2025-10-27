@@ -172,6 +172,7 @@ public class AppealServiceImp implements AppealService {
             reportResponse.setId(report.getId());
             reportResponse.setReason(report.getReason());
             reportResponse.setComment(report.getComment());
+            reportResponse.setCreatedAt(report.getCreatedAt());
 
             // el reportador
             UserSimpleResponse reporterResponse = new UserSimpleResponse();

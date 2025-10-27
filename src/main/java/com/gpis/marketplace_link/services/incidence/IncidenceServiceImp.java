@@ -4,6 +4,7 @@ import com.gpis.marketplace_link.dto.Messages;
 import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
 import com.gpis.marketplace_link.dto.incidence.projections.IncidenceDetailsProjection;
+import com.gpis.marketplace_link.dto.incidence.projections.IncidenceStatsProjection;
 import com.gpis.marketplace_link.dto.incidence.projections.UserIdProjection;
 import com.gpis.marketplace_link.dto.incidence.projections.VendorIdProjection;
 import com.gpis.marketplace_link.entities.*;
@@ -48,6 +49,20 @@ public class IncidenceServiceImp implements IncidenceService {
 
     private static final int REPORT_THRESHOLD = 3;
     private static final String SYSTEM_USERNAME = "system_user";
+
+    @Override
+    public IncidenceStatsResponse fetchStatsByUserId(Long id) {
+
+        IncidenceStatsProjection proj = this.incidenceRepository.fetchStatsById(id);
+
+        IncidenceStatsResponse response = new IncidenceStatsResponse();
+        response.setResolved(proj.getResolved());
+        response.setTotal(proj.getTotal());
+        response.setAppealed(proj.getAppealed());
+        response.setUnderReview(proj.getUnderReview());
+
+        return response;
+    }
 
     @Transactional
     @Override

@@ -2,6 +2,7 @@ package com.gpis.marketplace_link.rest;
 
 import com.gpis.marketplace_link.dto.incidence.AppealResponse;
 import com.gpis.marketplace_link.dto.incidence.*;
+import com.gpis.marketplace_link.security.service.SecurityService;
 import com.gpis.marketplace_link.services.incidence.IncidenceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,13 @@ import java.util.UUID;
 public class IncidenceController {
 
     private final IncidenceService incidenceService;
+    private final SecurityService securityService;
+
+    @GetMapping("/stats")
+    public IncidenceStatsResponse fetchStprats() {
+        Long userId = securityService.getCurrentUserId();
+        return incidenceService.fetchStatsByUserId(userId);
+    }
 
     @PostMapping("/system-report")
     public ReportResponse reportBySystem(@RequestBody RequestSystemReport req) {

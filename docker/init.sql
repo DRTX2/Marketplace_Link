@@ -436,15 +436,3 @@ CREATE TABLE appeals (
                          FOREIGN KEY (seller_id) REFERENCES users(id),
                          FOREIGN KEY (new_moderator_id) REFERENCES users(id)
 );
-
-CREATE TABLE user_block_logs (
-                         id BIGSERIAL PRIMARY KEY,
-                         user_id BIGINT NOT NULL,
-                         target_publication_id BIGINT, -- bloqueado solo para esa publicación
-                         reason TEXT,
-                         blocked_action VARCHAR(50) DEFAULT 'REPORT',
-                         blocked_until TIMESTAMP,
-                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                         FOREIGN KEY (user_id) REFERENCES users(id),
-                         FOREIGN KEY (target_publication_id) REFERENCES publications(id)
-);

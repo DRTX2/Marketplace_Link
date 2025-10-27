@@ -1,9 +1,6 @@
 package com.gpis.marketplace_link.repositories;
 
-import com.gpis.marketplace_link.dto.incidence.projections.IncidenceDetailsProjection;
-import com.gpis.marketplace_link.dto.incidence.projections.IncidencePublicationProjection;
-import com.gpis.marketplace_link.dto.incidence.projections.UserIdProjection;
-import com.gpis.marketplace_link.dto.incidence.projections.VendorIdProjection;
+import com.gpis.marketplace_link.dto.incidence.projections.*;
 import com.gpis.marketplace_link.entities.Incidence;
 import com.gpis.marketplace_link.enums.IncidenceStatus;
 import org.springframework.data.domain.Page;
@@ -29,6 +26,18 @@ import java.util.UUID;
  * @since 1.0
  */
 public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
+
+    @Query(value = """
+        SELECT 
+            COUNT(*) AS total,
+            SUM(CASE WHEN i.status = 'UNDER_REVIEW' THEN 1 ELSE 0 END) AS underReview,
+            SUM(CASE WHEN i.status = 'APPEALED' THEN 1 ELSE 0 END) as appealed,
+            SUM(CASE WHEN i.status = 'RESOLVED' THEN 1 ELSE 0 END) AS resolved
+        FROM incidences i
+        WHERE i.moderator_id = :userId
+        """, nativeQuery = true)
+    IncidenceStatsProjection fetchStatsById(@Param("userId") Long userId);
+
 
     /**
      * Cierra automáticamente todas las incidencias con estado "OPEN"
