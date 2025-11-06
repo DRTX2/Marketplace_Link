@@ -27,8 +27,8 @@ public interface PublicationMapper {
     PublicationResponse toResponse(Publication publication);
 
     @Mapping(target = "image", expression = "java(firstImage(publication))")
+    @Mapping(target = "canReport", ignore = true)
     PublicationSummaryResponse toSummaryResponse(Publication publication);
-
 
     @Mapping(target = "vendor", ignore = true)
     @Mapping(target = "category", ignore = true)
@@ -41,31 +41,30 @@ public interface PublicationMapper {
     @Mapping(target = "location", expression = "java(toPoint(request.latitude(), request.longitude()))")
     void updateFromRequest(@MappingTarget Publication publication, PublicationUpdateRequest request);
 
-
     default PublicationImageReponse toPublicationImageResponse(PublicationImage image) {
-        if (image == null) return null;
+        if (image == null)
+            return null;
         return new PublicationImageReponse(image.getId(), image.getPath());
     }
 
-
     default PublicationImageReponse firstImage(Publication publication) {
-        if (publication == null) return null;
+        if (publication == null)
+            return null;
         List<PublicationImage> images = publication.getImages();
-        if (images == null || images.isEmpty()) return null;
+        if (images == null || images.isEmpty())
+            return null;
         return toPublicationImageResponse(images.get(0));
     }
 
-
     GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
-
     default Point toPoint(Double latitude, Double longitude) {
-        if (latitude == null || longitude == null) return null;
+        if (latitude == null || longitude == null)
+            return null;
         Point p = GEOMETRY_FACTORY.createPoint(new Coordinate(longitude, latitude)); // (x=lon, y=lat)
         p.setSRID(4326);
         return p;
     }
-
 
     @AfterMapping
     default void ensureImagesInitialized(@MappingTarget Publication publication) {
@@ -75,12 +74,14 @@ public interface PublicationMapper {
     }
 
     default Double extractLatitude(Publication publication) {
-        if (publication == null || publication.getLocation() == null) return null;
+        if (publication == null || publication.getLocation() == null)
+            return null;
         return publication.getLocation().getY();
     }
 
     default Double extractLongitude(Publication publication) {
-        if (publication == null || publication.getLocation() == null) return null;
+        if (publication == null || publication.getLocation() == null)
+            return null;
         return publication.getLocation().getX();
     }
 }

@@ -17,6 +17,9 @@ import com.gpis.marketplace_link.mappers.PublicationMapper;
 import com.gpis.marketplace_link.repositories.PublicationRepository;
 import com.gpis.marketplace_link.repositories.UserRepository;
 import com.gpis.marketplace_link.repositories.CategoryRepository;
+import com.gpis.marketplace_link.repositories.ReportRepository;
+import com.gpis.marketplace_link.security.service.SecurityService;
+import com.gpis.marketplace_link.entities.Report;
 import com.gpis.marketplace_link.services.incidence.IncidenceService;
 import com.gpis.marketplace_link.services.incidence.IncidenceServiceImp;
 import com.gpis.marketplace_link.services.publications.valueObjects.DangerousWordMatch;
@@ -33,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import java.util.stream.Collectors;
@@ -49,9 +53,16 @@ public class PublicationService {
     private final ImageValidationService imageValidationService;
     private final IncidenceService incidenceService;
     private final FavoritePublicationService favoritePublicationService;
+    private final SecurityService securityService;
+    private final ReportRepository reportRepository;
     private static final Logger logger = LoggerFactory.getLogger(PublicationService.class);
 
-    public PublicationService(PublicationRepository repository, PublicationMapper mapper, FileStorageService fileStorageService, UserRepository userRepository, CategoryRepository categoryRepository, ImageValidationService imageValidationService, IncidenceServiceImp incidenceServiceImp, DangerousContentDetectedService dangerousContentDetectedService, FavoritePublicationService favoritePublicationService) {
+    public PublicationService(PublicationRepository repository, PublicationMapper mapper,
+            FileStorageService fileStorageService, UserRepository userRepository, CategoryRepository categoryRepository,
+            ImageValidationService imageValidationService, IncidenceServiceImp incidenceServiceImp,
+            DangerousContentDetectedService dangerousContentDetectedService,
+            FavoritePublicationService favoritePublicationService, SecurityService securityService,
+            ReportRepository reportRepository) {
         this.repository = repository;
         this.mapper = mapper;
         this.fileStorageService = fileStorageService;
@@ -61,23 +72,37 @@ public class PublicationService {
         this.imageValidationService = imageValidationService;
         this.dangerousContentDetectedService = dangerousContentDetectedService;
         this.favoritePublicationService = favoritePublicationService;
+        this.securityService = securityService;
+        this.reportRepository = reportRepository;
     }
 
     @Transactional(readOnly = true)
-    public Page<PublicationSummaryResponse> getAll(Pageable pageable, List<Long> categoryIds, BigDecimal minPrice, BigDecimal maxPrice, Double lat, Double lon, Double distanceKm) {
+    public Page<PublicationSummaryResponse> getAll(Pageable pageable, List<Long> categoryIds, BigDecimal minPrice,
+            BigDecimal maxPrice, Double lat, Double lon, Double distanceKm) {
 
-        Specification<Publication> spec =
-                PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue())
-                        .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.notSuspended())
-                        .and(PublicationSpecifications.hasAnyCategory(categoryIds))
-                        .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
-                        .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm))
-                        .and(PublicationSpecifications.vendorAccountStatusIsActive());
+        Specification<Publication> spec = PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue())
+                .and(PublicationSpecifications.notDeleted())
+                .and(PublicationSpecifications.notSuspended())
+                .and(PublicationSpecifications.hasAnyCategory(categoryIds))
+                .and(PublicationSpecifications.priceBetween(minPrice, maxPrice))
+                .and(PublicationSpecifications.withinDistance(lat, lon, distanceKm))
+                .and(PublicationSpecifications.vendorAccountStatusIsActive());
 
         Page<Publication> publications = repository.findAll(spec, pageable);
 
-        return publications.map(mapper::toSummaryResponse);
+        return publications.map(pub -> {
+            PublicationSummaryResponse baseResponse = mapper.toSummaryResponse(pub);
+            Boolean canReport = calculateCanReport(pub);
+            return new PublicationSummaryResponse(
+                    baseResponse.id(),
+                    baseResponse.type(),
+                    baseResponse.name(),
+                    baseResponse.price(),
+                    baseResponse.availability(),
+                    baseResponse.publicationDate(),
+                    baseResponse.image(),
+                    canReport);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -85,17 +110,27 @@ public class PublicationService {
 
         this.validateUserAndRole(vendorId);
 
-        Specification<Publication> spec =
-                PublicationSpecifications.vendorIs(vendorId)
-                        .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
-                        .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.hasAnyCategory(categoryIds));
+        Specification<Publication> spec = PublicationSpecifications.vendorIs(vendorId)
+                .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
+                .and(PublicationSpecifications.notDeleted())
+                .and(PublicationSpecifications.hasAnyCategory(categoryIds));
 
         Page<Publication> publications = repository.findAll(spec, pageable);
 
-        return publications.map(mapper::toSummaryResponse);
+        return publications.map(pub -> {
+            PublicationSummaryResponse baseResponse = mapper.toSummaryResponse(pub);
+            Boolean canReport = calculateCanReport(pub);
+            return new PublicationSummaryResponse(
+                    baseResponse.id(),
+                    baseResponse.type(),
+                    baseResponse.name(),
+                    baseResponse.price(),
+                    baseResponse.availability(),
+                    baseResponse.publicationDate(),
+                    baseResponse.image(),
+                    canReport);
+        });
     }
-
 
     public PublicationResponse getById(Long id) {
 
@@ -104,7 +139,6 @@ public class PublicationService {
         return mapper.toResponse(publication);
 
     }
-
 
     @Transactional(noRollbackFor = DangerousContentException.class)
     public PublicationResponse create(PublicationCreateRequest request) {
@@ -138,7 +172,6 @@ public class PublicationService {
         publication.setStatus(PublicationStatus.VISIBLE);
         Publication saved = repository.save(publication);
 
-
         return mapper.toResponse(saved);
     }
 
@@ -151,7 +184,6 @@ public class PublicationService {
 
         Publication publication = this.validatePublication(id);
 
-
         mapper.updateFromRequest(publication, request);
 
         publication.setVendor(userRepository.getReferenceById(request.vendorId()));
@@ -161,10 +193,8 @@ public class PublicationService {
         }
         publication.setType(publication.getWorkingHours() != null ? PublicationType.SERVICE : PublicationType.PRODUCT);
 
-
         Map<String, PublicationImage> existingMap = publication.getImages().stream()
                 .collect(Collectors.toMap(PublicationImage::getPath, img -> img));
-
 
         List<PublicationImage> imagesToRemove = publication.getImages().stream()
                 .filter(img -> request.images().stream()
@@ -240,7 +270,8 @@ public class PublicationService {
 
         if (publication.getStatus() == PublicationStatus.UNDER_REVIEW
                 || publication.getStatus() == PublicationStatus.BLOCKED) {
-            throw new PublicationCanNotDeleteException("No se puede eliminar la publicación debido a que se encuentra en revision o bloqueada");
+            throw new PublicationCanNotDeleteException(
+                    "No se puede eliminar la publicación debido a que se encuentra en revision o bloqueada");
         }
 
         favoritePublicationService.removeFavoritesByPublicationId(publication.getId());
@@ -255,7 +286,8 @@ public class PublicationService {
 
         repository.save(publication);
 
-        for (String path : imagePaths) fileStorageService.deleteFile(path);
+        for (String path : imagePaths)
+            fileStorageService.deleteFile(path);
 
     }
 
@@ -277,23 +309,19 @@ public class PublicationService {
 
     }
 
-
     public Publication validatePublication(Long id) {
 
-        Specification<Publication> spec =
-                PublicationSpecifications.idIs(id)
-                        .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
-                        .and(PublicationSpecifications.notDeleted())
-                        .and(PublicationSpecifications.notSuspended())
-                        .and(PublicationSpecifications.vendorAccountStatusIsActive());
+        Specification<Publication> spec = PublicationSpecifications.idIs(id)
+                .and(PublicationSpecifications.statusIs(PublicationStatus.VISIBLE.getValue()))
+                .and(PublicationSpecifications.notDeleted())
+                .and(PublicationSpecifications.notSuspended())
+                .and(PublicationSpecifications.vendorAccountStatusIsActive());
 
         return repository.findOne(spec)
                 .orElseThrow(() -> new PublicationNotFoundException(
-                        "Publicación con id " + id + " no encontrada"
-                ));
+                        "Publicación con id " + id + " no encontrada"));
 
     }
-
 
     private void validateDangerousContent(Publication publication) {
         if (dangerousContentDetectedService.containsDangerousContent(publication.getName())
@@ -303,19 +331,17 @@ public class PublicationService {
             Publication saved = repository.save(publication);
 
             List<DangerousWordMatch> dangerousWordsDetected = dangerousContentDetectedService.findDangerousWords(
-                    publication.getName() + " " + publication.getDescription()
-            );
+                    publication.getName() + " " + publication.getDescription());
 
             this.reportPublicationForDangerousContent(saved, dangerousWordsDetected);
 
             throw new DangerousContentException(
-                    "Se ha detectado que su publicación contiene contenido peligroso, por lo que ha sido enviada a revisión, si sospecha que se ha cometido un error por favor realice una apelacion, esta le llegara a su correo electrónico."
-            );
+                    "Se ha detectado que su publicación contiene contenido peligroso, por lo que ha sido enviada a revisión, si sospecha que se ha cometido un error por favor realice una apelacion, esta le llegara a su correo electrónico.");
         }
     }
 
-
-    private void reportPublicationForDangerousContent(Publication publication, List<DangerousWordMatch> dangerousWordsDetected) {
+    private void reportPublicationForDangerousContent(Publication publication,
+            List<DangerousWordMatch> dangerousWordsDetected) {
         RequestSystemReport requestSystemReport = new RequestSystemReport();
         requestSystemReport.setPublicationId(publication.getId());
         requestSystemReport.setReason("Contenido peligroso detectado");
@@ -324,8 +350,7 @@ public class PublicationService {
                         dangerousWordsDetected.stream()
                                 .map(dw -> dw.wordInText() + " (" + dw.patternMatched() + ")")
                                 .distinct()
-                                .collect(Collectors.joining(", "))
-        );
+                                .collect(Collectors.joining(", ")));
         incidenceService.reportBySystem(requestSystemReport);
     }
 
@@ -335,6 +360,31 @@ public class PublicationService {
 
         if (user.getRoles().stream().noneMatch(r -> r.getName().equals("ROLE_SELLER"))) {
             throw new UserIsNotVendorException("El usuario no es vendedor");
+        }
+    }
+
+    private Boolean calculateCanReport(Publication publication) {
+        try {
+            Long currentUserId = securityService.getCurrentUserId();
+
+            if (publication.getVendor().getId().equals(currentUserId)) {
+                return false;
+            }
+
+            Optional<Report> lastReport = reportRepository.findLastReportByReporterIdAndPublicationId(
+                    currentUserId, publication.getId());
+
+            if (lastReport.isPresent()) {
+                LocalDateTime lastReportTime = lastReport.get().getCreatedAt();
+                LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+                if (lastReportTime.isAfter(twentyFourHoursAgo)) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 

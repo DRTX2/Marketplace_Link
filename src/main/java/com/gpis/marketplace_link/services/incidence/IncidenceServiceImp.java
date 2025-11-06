@@ -85,12 +85,26 @@ public class IncidenceServiceImp implements IncidenceService {
         Long publicationId = req.getPublicationId();
 
         // Obtener entidades base
-        Publication pub = publicationRepository.findById(publicationId).orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
-        User reporter = userRepository.findById(reporterId).orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
+        Publication pub = publicationRepository.findById(publicationId)
+                .orElseThrow(() -> new PublicationNotFoundException(Messages.PUBLICATION_NOT_FOUND + publicationId));
+        User reporter = userRepository.findById(reporterId)
+                .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + reporterId));
 
         // Validar si el usuario intenta reportar su propia publicación
         if (pub.getVendor().getId().equals(reporter.getId())) {
             throw new IncidenceNotAllowedToReportOwnPublicationException("No puedes reportar tu propia publicación.");
+        }
+
+        // Validar que el usuario no haya reportado esta publicación en las últimas 24
+        // horas
+        Optional<Report> lastReport = reportRepository.findLastReportByReporterIdAndPublicationId(reporterId,
+                publicationId);
+        if (lastReport.isPresent()) {
+            LocalDateTime lastReportTime = lastReport.get().getCreatedAt();
+            LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+            if (lastReportTime.isAfter(twentyFourHoursAgo)) {
+                throw new ReportTooFrequentException("Solo puedes reportar esta publicación una vez cada 24 horas.");
+            }
         }
 
         // Crear o actualizar incidencia
@@ -126,7 +140,8 @@ public class IncidenceServiceImp implements IncidenceService {
                 .build();
     }
 
-    private ReportResponse handleExistingIncidence(Incidence existing, Publication pub, User reporter, RequestUserReport req) {
+    private ReportResponse handleExistingIncidence(Incidence existing, Publication pub, User reporter,
+            RequestUserReport req) {
 
         if (existing.getStatus().equals(IncidenceStatus.PENDING_REVIEW)) {
             throw new IncidenceAlreadyPendingReviewException(Messages.INCIDENCE_PENDING_REVIEW_CANNOT_ADD_REPORT);
@@ -228,8 +243,7 @@ public class IncidenceServiceImp implements IncidenceService {
                 IncidenceStatus.OPEN,
                 IncidenceStatus.PENDING_REVIEW,
                 IncidenceStatus.UNDER_REVIEW,
-                IncidenceStatus.APPEALED
-        );
+                IncidenceStatus.APPEALED);
         return incidenceRepository.findByPublicationIdAndStatusIn(publicationId, activeStatuses);
     }
 
@@ -266,21 +280,51 @@ public class IncidenceServiceImp implements IncidenceService {
 
     @Transactional(readOnly = true)
     @Override
-    public Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(Pageable pageable) {
-        Page<Incidence> page = this.incidenceRepository.findAllUnreviewedWithDetails(pageable);
-       return  generatePageIncidenceSimpleDetailResponse(page);
+    public Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(Pageable pageable, LocalDateTime startDate,
+            LocalDateTime endDate) {
+        Page<Incidence> page;
+
+        // Si no se envían fechas, trae todo
+        if (startDate == null || endDate == null) {
+            page = incidenceRepository.findAllUnreviewedWithDetails(pageable);
+        } else {
+
+            if (endDate.isBefore(startDate)) {
+                throw new IllegalArgumentException("La fecha final no puede ser anterior a la fecha inicial.");
+            }
+
+            page = incidenceRepository.findAllUnreviewedWithDetailsBetween(pageable, startDate, endDate);
+        }
+
+        return generatePageIncidenceSimpleDetailResponse(page);
     }
 
     @Transactional(readOnly = true)
     @Override
-    public Page<IncidenceSimpleDetailsResponse> fetchAllReviewed(Pageable pageable) {
+    public Page<IncidenceSimpleDetailsResponse> fetchAllReviewed(Pageable pageable, LocalDateTime startDate,
+            LocalDateTime endDate) {
         Long currentUserId = securityService.getCurrentUserId();
-        Page<Incidence> incidences = this.incidenceRepository.findAllReviewedWithDetails(currentUserId, pageable);
-        return generatePageIncidenceSimpleDetailResponse(incidences);
+
+        Page<Incidence> page;
+
+        if (startDate == null || endDate == null) {
+            page = incidenceRepository.findAllReviewedWithDetails(currentUserId, pageable);
+        } else {
+
+            if (endDate.isBefore(startDate)) {
+                throw new IllegalArgumentException("La fecha final no puede ser anterior a la fecha inicial.");
+            }
+
+            page = incidenceRepository.findAllReviewedWithDetailsBetween(currentUserId, pageable, startDate, endDate);
+        }
+
+        return generatePageIncidenceSimpleDetailResponse(page);
     }
 
-    // Esta incidencia se usa cuando se hace un fetch para las no revisadas y para las revisadas.
-    // Si es revisada, tengo que verificar que el moderador sea el dueño de la incidencia.
+    // Esta incidencia se usa cuando se hace un fetch para las no revisadas y para
+    // las revisadas.
+    // Si es revisada, tengo que verificar que el moderador sea el dueño de la
+    // incidencia.
     @Transactional(readOnly = true)
     @Override
     public IncidenceDetailsResponse fetchByPublicUiNativeProjection(UUID publicUi) {
@@ -299,7 +343,8 @@ public class IncidenceServiceImp implements IncidenceService {
         return generateIncidenceDetailResponseUsingProjection(projection);
     }
 
-    // Esto es parecido a la anterior, pero aqui tengo que verificar que el vendedor sea el dueño de la publicacion.
+    // Esto es parecido a la anterior, pero aqui tengo que verificar que el vendedor
+    // sea el dueño de la publicacion.
     @Override
     public IncidenceDetailsResponse fetchByPublicUiForSellerNativeProjection(UUID publicUi) {
         List<IncidenceDetailsProjection> projection = incidenceRepository.findByPublicUiWithDetailsNative(publicUi);
@@ -318,7 +363,8 @@ public class IncidenceServiceImp implements IncidenceService {
         return generateIncidenceDetailResponseUsingProjection(projection);
     }
 
-    public IncidenceDetailsResponse generateIncidenceDetailResponseUsingProjection(List<IncidenceDetailsProjection> projection) {
+    public IncidenceDetailsResponse generateIncidenceDetailResponseUsingProjection(
+            List<IncidenceDetailsProjection> projection) {
         IncidenceDetailsProjection incidence = projection.getFirst();
 
         // Ahora mapear los datos de la incidencia.
@@ -338,7 +384,7 @@ public class IncidenceServiceImp implements IncidenceService {
         publicationResponse.setDescription(incidence.getPublicationDescription());
 
         // Ahora cada reporte
-        List<SimpleReportResponse> reportResponses = projection.stream().map( inc-> {
+        List<SimpleReportResponse> reportResponses = projection.stream().map(inc -> {
 
             SimpleReportResponse simpleResponse = new SimpleReportResponse();
             simpleResponse.setReason(inc.getReportReason());
@@ -390,22 +436,26 @@ public class IncidenceServiceImp implements IncidenceService {
     @Override
     public ClaimIncidenceResponse claim(RequestClaimIncidence req) {
         Incidence incidence = incidenceRepository.findByPublicUi(req.getPublicIncidenceUi())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
+                .orElseThrow(() -> new IncidenceNotFoundException(
+                        Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
         // Esto es para verificar la parte del moderador bloqueado o inactivo.
         Long currentUserId = this.securityService.getCurrentUserId();
         User moderator = userRepository.findByIdNative(currentUserId)
                 .orElseThrow(() -> new ModeratorNotFoundException(Messages.MODERATOR_NOT_FOUND + currentUserId));
-        if ((moderator.getAccountStatus().equals(AccountStatus.INACTIVE) && moderator.getDeleted()) || moderator.getAccountStatus().equals(AccountStatus.BLOCKED)) {
+        if ((moderator.getAccountStatus().equals(AccountStatus.INACTIVE) && moderator.getDeleted())
+                || moderator.getAccountStatus().equals(AccountStatus.BLOCKED)) {
             throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_CLAIM_INCIDENCE);
         }
 
         // Esto es para verificar la parte del vendedor bloqueado o inactivo.
         UserIdProjection userIdProjection = incidenceRepository.findUserIdByPublicUi(req.getPublicIncidenceUi())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.USER_ID_PROJECTION_NOT_FOUND + req.getPublicIncidenceUi()));
+                .orElseThrow(() -> new IncidenceNotFoundException(
+                        Messages.USER_ID_PROJECTION_NOT_FOUND + req.getPublicIncidenceUi()));
         User user = userRepository.findByIdNative(userIdProjection.getUserId())
                 .orElseThrow(() -> new UserNotFoundException(Messages.USER_NOT_FOUND + userIdProjection.getUserId()));
-        if ((user.getAccountStatus().equals(AccountStatus.INACTIVE) && user.getDeleted()) || user.getAccountStatus().equals(AccountStatus.BLOCKED)) {
+        if ((user.getAccountStatus().equals(AccountStatus.INACTIVE) && user.getDeleted())
+                || user.getAccountStatus().equals(AccountStatus.BLOCKED)) {
             throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_CLAIM_INCIDENCE);
         }
         if (incidence.getStatus() != IncidenceStatus.OPEN && incidence.getStatus() != IncidenceStatus.PENDING_REVIEW) {
@@ -428,24 +478,30 @@ public class IncidenceServiceImp implements IncidenceService {
     @Override
     public DecisionResponse makeDecision(RequestMakeDecision req) {
         Incidence incidence = incidenceRepository.findByPublicUi(req.getPublicIncidenceUi())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
+                .orElseThrow(() -> new IncidenceNotFoundException(
+                        Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
         // Esto es para verificar la parte del moderador bloqueado o inactivo.
         Long currentUserId = this.securityService.getCurrentUserId();
         User moderator = userRepository.findByIdNative(currentUserId)
                 .orElseThrow(() -> new ModeratorNotFoundException(Messages.MODERATOR_NOT_FOUND + currentUserId));
-        if ((moderator.getAccountStatus().equals(AccountStatus.INACTIVE) && moderator.getDeleted()) || moderator.getAccountStatus().equals(AccountStatus.BLOCKED)) {
+        if ((moderator.getAccountStatus().equals(AccountStatus.INACTIVE) && moderator.getDeleted())
+                || moderator.getAccountStatus().equals(AccountStatus.BLOCKED)) {
             throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_CLAIM_INCIDENCE);
         }
 
-        // Ver si el vendedor esta bloqeuado o deshabiltiado, si es asi el moderador/admin no puede tomar decision
-        // ya que dana el flujo (ese vendedor no puede entrar al sistema, por lo tanto ya sea si acepta o apela la incidencia
+        // Ver si el vendedor esta bloqeuado o deshabiltiado, si es asi el
+        // moderador/admin no puede tomar decision
+        // ya que dana el flujo (ese vendedor no puede entrar al sistema, por lo tanto
+        // ya sea si acepta o apela la incidencia
         // no podra hacer nada).
         UserIdProjection userIdProjection = incidenceRepository.findUserIdByPublicUi(req.getPublicIncidenceUi())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.USER_ID_PROJECTION_NOT_FOUND + req.getPublicIncidenceUi()));
+                .orElseThrow(() -> new IncidenceNotFoundException(
+                        Messages.USER_ID_PROJECTION_NOT_FOUND + req.getPublicIncidenceUi()));
         User user = userRepository.findByIdNative(userIdProjection.getUserId())
                 .orElseThrow(() -> new UserNotFoundException(Messages.USER_NOT_FOUND + userIdProjection.getUserId()));
-        if ((user.getAccountStatus().equals(AccountStatus.INACTIVE) && user.getDeleted()) || user.getAccountStatus().equals(AccountStatus.BLOCKED)) {
+        if ((user.getAccountStatus().equals(AccountStatus.INACTIVE) && user.getDeleted())
+                || user.getAccountStatus().equals(AccountStatus.BLOCKED)) {
             throw new AccessDeniedException(Messages.ACCESS_DENIED_TO_MAKE_DECISION_INCIDENCE);
         }
 
@@ -453,7 +509,8 @@ public class IncidenceServiceImp implements IncidenceService {
             throw new IncidenceNotUnderReviewException(Messages.INCIDENCE_NOT_UNDER_REVIEW + incidence.getStatus());
         }
 
-        // Buscar la incidencia y ver que el id del moderador concide con el currentUserId
+        // Buscar la incidencia y ver que el id del moderador concide con el
+        // currentUserId
         boolean belongsToModerator = incidenceRepository.existsByIdAndModeratorId(incidence.getId(), currentUserId);
         if (!belongsToModerator) {
             throw new IncidenceNotBelongToModeratorException(Messages.INCIDENCE_NOT_BELONG_TO_MODERATOR);
@@ -468,7 +525,8 @@ public class IncidenceServiceImp implements IncidenceService {
         if (decision.equals(IncidenceDecision.APPROVED)) {
             incidence.getPublication().setVisible();
 
-            // En ecendia, aqui siempre la incidencia estaria open, si no entra. Si entra, signficia que esta bajo revision.
+            // En ecendia, aqui siempre la incidencia estaria open, si no entra. Si entra,
+            // signficia que esta bajo revision.
             if (incidence.getReports().size() >= REPORT_THRESHOLD) {
                 this.notifyUserOfPublicationUnlock(incidence);
             }
@@ -485,16 +543,16 @@ public class IncidenceServiceImp implements IncidenceService {
                 incidence.getPublicUi(),
                 incidence.getDecision(),
                 incidence.getStatus().name(),
-                Messages.DECISION_PROCESSED_SUCCESSFULLY
-        );
+                Messages.DECISION_PROCESSED_SUCCESSFULLY);
     }
 
     @Transactional
     @Override
-    public AppealResponse   appeal(RequestAppealIncidence req) {
+    public AppealResponse appeal(RequestAppealIncidence req) {
 
         VendorIdProjection projection = incidenceRepository.findVendorIdByIncidencePublicUi(req.getPublicIncidenceUi())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.VENDOR_ID_PROJECTION_NOT_FOUND + req.getPublicIncidenceUi()));
+                .orElseThrow(() -> new IncidenceNotFoundException(
+                        Messages.VENDOR_ID_PROJECTION_NOT_FOUND + req.getPublicIncidenceUi()));
 
         // Primero voy a checar si el vendedor esta habilitado para apelar.
         boolean isSellerActive = userRepository.existsByIdNative(projection.getVendorId());
@@ -503,14 +561,16 @@ public class IncidenceServiceImp implements IncidenceService {
         }
 
         Incidence incidence = incidenceRepository.findByPublicUiEager(req.getPublicIncidenceUi())
-                .orElseThrow(() -> new IncidenceNotFoundException(Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
+                .orElseThrow(() -> new IncidenceNotFoundException(
+                        Messages.INCIDENCE_NOT_FOUND + req.getPublicIncidenceUi()));
 
         // verificar que este rechazada
         if (!incidence.getDecision().equals(IncidenceDecision.REJECTED)) {
             throw new IncidenceNotAppealableException(Messages.INCIDENCE_NOT_APPEALABLE);
         }
 
-        // ver si esa incidencia ya tiene una apelacion, si es asi, no puede apelar de nuevo.
+        // ver si esa incidencia ya tiene una apelacion, si es asi, no puede apelar de
+        // nuevo.
         boolean hasAppeal = appealRepository.existsByIncidenceId(incidence.getId());
         if (hasAppeal) {
             throw new IncidenceAlreadyAppealedException(Messages.INCIDENCE_ALREADY_APPEALED);
@@ -521,7 +581,8 @@ public class IncidenceServiceImp implements IncidenceService {
         User seller = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ReporterNotFoundException(Messages.REPORTER_NOT_FOUND + currentUserId));
 
-        // chequear qeu el usuario actual, sea realmente el vendedor de la publicacion asociada a la incidencia
+        // chequear qeu el usuario actual, sea realmente el vendedor de la publicacion
+        // asociada a la incidencia
         if (!incidence.getPublication().getVendor().getId().equals(currentUserId)) {
             throw new IncidenceAppealNotAllowedException(Messages.SELLER_NOT_OWNER_OF_PUBLICATION);
         }
@@ -544,7 +605,8 @@ public class IncidenceServiceImp implements IncidenceService {
         Long newModeratorId = userRepository.findLeastBusyModeratorOrAdminExcludingId(previousModerator.getId());
 
         if (newModeratorId == null) {
-            // No hay otros moderadores disponibles. Entonces pasa a una cola de espera, pero el cliente sabra que cada dia a las 3,30 am
+            // No hay otros moderadores disponibles. Entonces pasa a una cola de espera,
+            // pero el cliente sabra que cada dia a las 3,30 am
             // se intentara asignar automaticamente otro moderador.
             appeal.setStatus(AppealStatus.FAILED_NO_MOD);
             Appeal saved = appealRepository.save(appeal);
@@ -595,8 +657,7 @@ public class IncidenceServiceImp implements IncidenceService {
 
         Map<String, String> variables = Map.of(
                 "fullName", vendor.getFullName(),
-                "publicationName", pub.getName()
-        );
+                "publicationName", pub.getName());
         notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_BLOCKED_NOTIFICATION, variables);
     }
 
@@ -606,8 +667,7 @@ public class IncidenceServiceImp implements IncidenceService {
 
         Map<String, String> variables = Map.of(
                 "fullName", vendor.getFullName(),
-                "publicationName", pub.getName()
-        );
+                "publicationName", pub.getName());
         notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_UNLOCK_NOTIFICATION, variables);
     }
 
@@ -615,14 +675,15 @@ public class IncidenceServiceImp implements IncidenceService {
         Publication pub = incidence.getPublication();
         User vendor = pub.getVendor();
 
-        String uriFrontend = frontendUrl + "/marketplace-refactored" + "/incidencias/" + incidence.getPublicUi() + "/apelacion";
+        String uriFrontend = frontendUrl + "/marketplace-refactored" + "/incidencias/" + incidence.getPublicUi()
+                + "/apelacion";
 
         Map<String, String> variables = Map.of(
                 "fullName", vendor.getFullName(),
                 "publicationName", pub.getName(),
-                "appealLink", uriFrontend
-        );
-        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_APPEAL_AVAILABLE_NOTIFICATION, variables);
+                "appealLink", uriFrontend);
+        notificationService.sendAsync(vendor.getEmail(), EmailType.PUBLICATION_APPEAL_AVAILABLE_NOTIFICATION,
+                variables);
     }
 
     public void sendAppealPendingAssignmentEmailToSeller(Appeal appeal) {
@@ -631,14 +692,12 @@ public class IncidenceServiceImp implements IncidenceService {
 
         Map<String, String> variables = Map.of(
                 "fullName", vendor.getFullName(),
-                "publicationName", pub.getName()
-        );
+                "publicationName", pub.getName());
 
         notificationService.sendAsync(
                 vendor.getEmail(),
                 EmailType.APPEAL_PENDING_ASSIGNMENT_NOTIFICATION,
-                variables
-        );
+                variables);
     }
 
     public void notifyUserOfAppealSubmission(Incidence incidence) {
@@ -647,9 +706,9 @@ public class IncidenceServiceImp implements IncidenceService {
 
         Map<String, String> variables = Map.of(
                 "fullName", vendor.getFullName(),
-                "publicationName", pub.getName()
-        );
-        notificationService.sendAsync(vendor.getEmail(), EmailType.APPEAL_RECEIVED_CONFIRMATION_NOTIFICATION, variables);
+                "publicationName", pub.getName());
+        notificationService.sendAsync(vendor.getEmail(), EmailType.APPEAL_RECEIVED_CONFIRMATION_NOTIFICATION,
+                variables);
     }
 
     public void notifyModeratorOfNewAppeal(Incidence incidence, ModeratorInfo moderatorInfo, Appeal appeal) {
@@ -663,8 +722,7 @@ public class IncidenceServiceImp implements IncidenceService {
                 "moderatorName", moderatorInfo.getFullname(),
                 "fullName", vendor.getFullName(),
                 "publicationName", pub.getName(),
-                "moderationPanelLink", uriFrontend
-        );
+                "moderationPanelLink", uriFrontend);
         notificationService.sendAsync(newEmail, EmailType.APPEAL_ASSIGNED_TO_MODERATOR_NOTIFICATION, variables);
     }
 

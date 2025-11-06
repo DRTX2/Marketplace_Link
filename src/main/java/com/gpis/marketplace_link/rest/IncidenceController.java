@@ -10,9 +10,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -38,20 +40,26 @@ public class IncidenceController {
     @GetMapping("/all")
     public Page<IncidenceSimpleDetailsResponse> fetchAllUnreviewed(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
     ) {
+        System.out.println("startDate: " + startDate);
+        System.out.println("endDate: " + endDate);
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        return incidenceService.fetchAllUnreviewed(pageable);
+        return incidenceService.fetchAllUnreviewed(pageable, startDate, endDate);
     }
 
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     @GetMapping("/my")
     public Page<IncidenceSimpleDetailsResponse> fetchMyReviewed(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        return incidenceService.fetchAllReviewed(pageable);
+        return incidenceService.fetchAllReviewed(pageable, startDate, endDate);
     }
 
     // El usuario piensa que es id, pero en realidad se refiere al publicUi y asi se evita exponer ids secuenciales

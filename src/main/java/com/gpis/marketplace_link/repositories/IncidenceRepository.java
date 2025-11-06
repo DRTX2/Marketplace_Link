@@ -73,14 +73,34 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
      */
     Optional<Incidence> findByPublicationIdAndStatusIn(Long publicationId, List<IncidenceStatus> status);
 
-    // Si el vendedor esta deshabilitado y la publicacion tiene fetch eager en el vendedor, esto muere
-    /**
-     * Obtiene todas las incidencias pendientes de revisión,
-     * es decir, aquellas sin moderador asignado y con decisión "PENDING".
-     *
-     * @param pageable información de paginación.
-     * @return página con las incidencias no revisadas y sus publicaciones asociadas.
-     */
+    // Si el vendedor esta deshabilitado y la publicacion tiene fetch eager en el vendedor, esto muere.
+    // Trae todas las incidencias sin revisar entre dos fechas
+    @Query(
+            value = """
+        SELECT DISTINCT i FROM Incidence i
+        JOIN FETCH i.publication p
+        WHERE i.status IN (
+            com.gpis.marketplace_link.enums.IncidenceStatus.OPEN,
+            com.gpis.marketplace_link.enums.IncidenceStatus.PENDING_REVIEW
+        )
+        AND i.moderator IS NULL
+        AND i.decision = com.gpis.marketplace_link.enums.IncidenceDecision.PENDING
+        AND i.createdAt BETWEEN :startDate AND :endDate
+    """,
+            countQuery = """
+        SELECT COUNT(i) FROM Incidence i
+        WHERE i.status IN (
+            com.gpis.marketplace_link.enums.IncidenceStatus.OPEN,
+            com.gpis.marketplace_link.enums.IncidenceStatus.PENDING_REVIEW
+        )
+        AND i.moderator IS NULL
+        AND i.decision = com.gpis.marketplace_link.enums.IncidenceDecision.PENDING
+        AND i.createdAt BETWEEN :startDate AND :endDate
+    """
+    )
+    Page<Incidence> findAllUnreviewedWithDetailsBetween(Pageable pageable, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Todas las incidencias sin revisar sin filtro de fecha
     @Query(
             value = """
         SELECT DISTINCT i FROM Incidence i
@@ -104,15 +124,24 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     )
     Page<Incidence> findAllUnreviewedWithDetails(Pageable pageable);
 
+
     // Si el vendedor esta deshabilitado y la publicacion tiene fetch eager en el vendedor, esto muere
-    /**
-     * Obtiene todas las incidencias revisadas por un moderador específico.
-     * Incluye la información de la publicación asociada a cada incidencia.
-     *
-     * @param userId   identificador del moderador.
-     * @param pageable información de paginación.
-     * @return página con las incidencias revisadas y sus publicaciones.
-     */
+    @Query(
+            value =
+                    """
+                    SELECT DISTINCT i FROM Incidence i
+                    JOIN FETCH i.publication p
+                    WHERE i.moderator.id = :userId
+                    AND i.createdAt BETWEEN :startDate AND :endDate
+                """,
+            countQuery = """
+        SELECT COUNT(i)
+        FROM Incidence i
+        WHERE i.moderator.id = :userId
+    """
+    )
+    Page<Incidence> findAllReviewedWithDetailsBetween(Long userId, Pageable pageable, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
     @Query(
             value =
                     """
@@ -127,6 +156,7 @@ public interface IncidenceRepository extends JpaRepository<Incidence, Long> {
     """
     )
     Page<Incidence> findAllReviewedWithDetails(Long userId, Pageable pageable);
+
 
     /**
      * Obtiene los detalles completos de una incidencia junto con sus reportes asociados.

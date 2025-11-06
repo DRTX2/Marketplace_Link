@@ -120,9 +120,17 @@ public class BusinessAdvice {
     }
 
     @ExceptionHandler(IncidenceNotAllowedToReportOwnPublicationException.class)
-    public ProblemDetail handleIncidenceNotAllowedToReportOwnPublication(IncidenceNotAllowedToReportOwnPublicationException ex) {
+    public ProblemDetail handleIncidenceNotAllowedToReportOwnPublication(
+            IncidenceNotAllowedToReportOwnPublicationException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
         pd.setTitle("Incidence Not Allowed To Report Own Publication");
+        return pd;
+    }
+
+    @ExceptionHandler(ReportTooFrequentException.class)
+    public ProblemDetail handleReportTooFrequent(ReportTooFrequentException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+        pd.setTitle("Report Too Frequent");
         return pd;
     }
 
