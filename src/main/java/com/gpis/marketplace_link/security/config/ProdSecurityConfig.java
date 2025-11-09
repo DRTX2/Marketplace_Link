@@ -45,6 +45,7 @@ public class ProdSecurityConfig {
             "/api/users/**",
             "/api/auth/password/**",
             "/api/auth/resend-verification", "/api/auth/verify-email/resend",
+            "/actuator/health", // Docker health check endpoint
             "/error",
     };
 

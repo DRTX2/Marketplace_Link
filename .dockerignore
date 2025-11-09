@@ -1,0 +1,44 @@
+# Archivos y directorios a ignorar al construir la imagen Docker
+.git
+.gitignore
+.env
+.env.local
+.DS_Store
+
+# Archivos de IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Archivos de compilación
+target/
+*.class
+*.jar
+*.war
+
+# Dependencias
+.mvn/
+mvnw
+mvnw.cmd
+
+# Documentación
+*.md
+README.md
+docs/
+
+# Logs
+*.log
+logs/
+
+# Archivos de pruebas
+test/
+src/test/
+
+# Uploads (no necesario en build)
+uploads/
+
+# Node modules (si hay frontend)
+node_modules/
