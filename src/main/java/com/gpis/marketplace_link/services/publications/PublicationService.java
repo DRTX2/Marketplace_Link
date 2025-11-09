@@ -193,24 +193,24 @@ public class PublicationService {
         }
         publication.setType(publication.getWorkingHours() != null ? PublicationType.SERVICE : PublicationType.PRODUCT);
 
-        Map<String, PublicationImage> existingMap = publication.getImages().stream()
-                .collect(Collectors.toMap(PublicationImage::getPath, img -> img));
+        // ✅ FIX: Obtener lista de URLs existentes que se deben mantener
+        Set<String> existingUrlsToKeep = request.existingImageUrls() != null 
+            ? new HashSet<>(request.existingImageUrls()) 
+            : new HashSet<>();
 
+        // ✅ FIX: Identificar imágenes a eliminar (las que NO están en existingUrlsToKeep)
         List<PublicationImage> imagesToRemove = publication.getImages().stream()
-                .filter(img -> request.images().stream()
-                        .noneMatch(f -> f.getOriginalFilename().equals(img.getPath())))
+                .filter(img -> !existingUrlsToKeep.contains(img.getPath()))
                 .toList();
 
+        // Eliminar imágenes que ya no se necesitan
         for (PublicationImage img : imagesToRemove) {
             publication.getImages().remove(img);
             fileStorageService.deleteFile(img.getPath());
         }
 
-        List<MultipartFile> newFiles = request.images().stream()
-                .filter(f -> !existingMap.containsKey(f.getOriginalFilename()))
-                .toList();
-
-        for (MultipartFile file : newFiles) {
+        // Agregar solo las imágenes NUEVAS (los archivos MultipartFile)
+        for (MultipartFile file : request.images()) {
             String path = fileStorageService.storeFile(file);
             PublicationImage img = new PublicationImage();
             img.setPath(path);

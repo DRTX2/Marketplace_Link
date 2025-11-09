@@ -47,7 +47,13 @@ public record PublicationUpdateRequest(
         Long vendorId,
 
         @ImageCount(min=1,max=5,message = "La cantidad de imágenes debe estar entre 1 y 5")
-        List<MultipartFile>images
+        List<MultipartFile> images,
+
+        /**
+         * URLs de imágenes existentes que se deben mantener
+         * (para no borrar las imágenes que el usuario NO modificó)
+         */
+        List<String> existingImageUrls
 
 ) {
 }
