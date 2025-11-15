@@ -96,3 +96,10 @@ frontend:
 
 moderator:
   default-password: ${MODERATOR_DEFAULT_PASSWORD}
+
+# Azure Blob Storage Configuration
+azure:
+  storage:
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
+    container-name: ${AZURE_STORAGE_CONTAINER_NAME:imagenes}
+    enabled: ${AZURE_STORAGE_ENABLED:true}

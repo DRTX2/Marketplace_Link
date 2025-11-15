@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  # Contenedor principal
+  mplink_postgres:
+    image: postgis/postgis:16-3.5
+    container_name: mplink_marketplace_db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5436}:5432"
+    environment:
+      POSTGRES_DB: marketplace_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - mplink_pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mplink_net
+
+  # Contenedor de pruebas
+  mplink_postgres_test:
+    image: postgis/postgis:16-3.5
+    container_name: mplink_marketplace_test_db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT_TEST:-5437}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME_TEST}
+      POSTGRES_USER: ${DB_USER_TEST}
+      POSTGRES_PASSWORD: ${DB_PASSWORD_TEST}
+    # Sin volumen persistente
+    tmpfs:
+      - /var/lib/postgresql/data:rw
+    volumes:
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER_TEST} -d ${DB_NAME_TEST}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mplink_net
+
+volumes:
+  mplink_pgdata:
+
+networks:
+  mplink_net:
+    driver: bridge
