@@ -6,9 +6,18 @@ COPY src ./src
 RUN mvn clean package -DskipTests -q
 FROM eclipse-temurin:21-jre-alpine
 
+# Build arguments (usados por Jenkins)
+ARG BUILD_DATE
+ARG BUILD_TIME
+ARG GIT_COMMIT
+ARG VERSION
+
 LABEL maintainer="Marketplace Link Team"
 LABEL description="Marketplace Link Backend - Spring Boot Application"
-LABEL version="0.0.1"
+LABEL version="${VERSION:-0.0.1}"
+LABEL build-date="${BUILD_DATE}"
+LABEL build-time="${BUILD_TIME}"
+LABEL git-commit="${GIT_COMMIT}"
 
 RUN apk add --no-cache \
       tzdata \
@@ -26,7 +35,7 @@ RUN mkdir -p /app/uploads && chown -R spring:spring /app
 USER spring:spring
 
 EXPOSE 8080
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Dspring.profiles.active=prod" \
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0" \
     SERVER_PORT=8080 \
     TZ=America/New_York
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
