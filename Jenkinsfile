@@ -26,8 +26,6 @@ pipeline {
 
     stages {
 
-        /* -------------------- CHECKOUT -------------------- */
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -41,8 +39,6 @@ pipeline {
             }
         }
 
-        /* -------------------- VALIDACIÓN -------------------- */
-
         stage('Validación de Proyecto') {
             steps {
                 dir('back') {
@@ -53,8 +49,6 @@ pipeline {
             }
         }
 
-        /* -------------------- COMPILACIÓN -------------------- */
-
         stage('Compilar Backend') {
             steps {
                 dir('back') {
@@ -62,8 +56,6 @@ pipeline {
                 }
             }
         }
-
-        /* -------------------- TESTS POSTMAN -------------------- */
 
         stage('Tests (Postman)') {
             steps {
@@ -102,8 +94,6 @@ pipeline {
             }
         }
 
-        /* -------------------- DOCKER BUILD -------------------- */
-
         stage('Construir Imagen Docker') {
             when { expression { params.BUILD_DOCKER } }
             steps {
@@ -118,8 +108,6 @@ pipeline {
             }
         }
 
-        /* -------------------- DOCKER PUSH -------------------- */
-
         stage('Push Imagen') {
             when { expression { params.PUSH_DOCKER && params.BUILD_DOCKER } }
             steps {
@@ -129,8 +117,6 @@ pipeline {
                 }
             }
         }
-
-        /* -------------------- VALIDACIÓN LOCAL DOCKER-COMPOSE -------------------- */
 
         stage('Validación Local (Docker Compose)') {
             when { 
@@ -245,8 +231,6 @@ pipeline {
             }
         }
 
-        /* -------------------- DEPLOY -------------------- */
-
         stage('Deploy to Azure') {
             when { expression { params.DEPLOY_ENV != 'none' && params.BUILD_DOCKER } }
             steps {
@@ -266,8 +250,6 @@ pipeline {
             }
         }
     }
-
-    /* -------------------- POST BUILD -------------------- */
 
     post {
         always {
