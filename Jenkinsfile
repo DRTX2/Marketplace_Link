@@ -391,9 +391,13 @@ pipeline {
                         
                         // Mostrar logs del backend ANTES de ejecutar tests (para debugging)
                         if (useDockerNetwork && backendContainerRunning) {
-                            echo "📋 === LOGS DEL BACKEND (últimas 50 líneas) ==="
+                            // Esperar 30 segundos adicionales para que Spring Boot arranque completamente
+                            echo "⏳ Esperando 30 segundos para que Spring Boot arranque..."
+                            sh "sleep 30"
+                            
+                            echo "📋 === LOGS COMPLETOS DEL BACKEND ==="
                             sh """
-                                docker logs --tail 50 mplink_backend 2>&1 || true
+                                docker logs mplink_backend 2>&1 || true
                             """
                             echo "📋 === FIN LOGS DEL BACKEND ==="
                             
@@ -401,6 +405,12 @@ pipeline {
                             echo "🔍 Estado del contenedor backend..."
                             sh """
                                 docker inspect mplink_backend --format='{{.State.Status}}: {{.State.Health.Status}}' 2>/dev/null || echo "No disponible"
+                            """
+                            
+                            // Verificar si el proceso Java está corriendo
+                            echo "🔍 Verificando proceso Java..."
+                            sh """
+                                docker exec mplink_backend ps aux | grep java || echo "⚠️ Proceso Java no encontrado"
                             """
                             
                             // Intentar conectarse al puerto 8080 desde dentro del contenedor

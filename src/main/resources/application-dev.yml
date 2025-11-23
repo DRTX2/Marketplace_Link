@@ -18,9 +18,9 @@ spring:
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_AUTH:false}  # Deshabilitar auth si no hay credenciales
           starttls:
-            enable: true
+            enable: ${MAIL_STARTTLS:false}  # Deshabilitar TLS si no está configurado
   jpa:
     show-sql: true
     hibernate:
@@ -40,4 +40,19 @@ logging:
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false  # Deshabilitar health check de mail en dev para evitar errores
+
 
