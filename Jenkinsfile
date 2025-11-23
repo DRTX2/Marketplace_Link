@@ -391,9 +391,32 @@ pipeline {
                         
                         // Mostrar logs del backend ANTES de ejecutar tests (para debugging)
                         if (useDockerNetwork && backendContainerRunning) {
-                            // Esperar 30 segundos adicionales para que Spring Boot arranque completamente
-                            echo "⏳ Esperando 30 segundos para que Spring Boot arranque..."
-                            sh "sleep 30"
+                            // Esperar a que Spring Boot arranque completamente (hasta 120 segundos)
+                            echo "⏳ Esperando a que Spring Boot termine de iniciar (hasta 120 segundos)..."
+                            sh '''
+                                timeout=120
+                                elapsed=0
+                                app_ready=false
+                                
+                                while [ $elapsed -lt $timeout ]; do
+                                    # Verificar si el log contiene "Started BackApplication"
+                                    if docker logs mplink_backend 2>&1 | grep -q "Started BackApplication"; then
+                                        echo "✅ Spring Boot ha arrancado completamente"
+                                        app_ready=true
+                                        break
+                                    fi
+                                    
+                                    echo "⏳ Esperando... ($elapsed segundos)"
+                                    sleep 5
+                                    elapsed=$((elapsed + 5))
+                                done
+                                
+                                if [ "$app_ready" != "true" ]; then
+                                    echo "❌ ERROR: Spring Boot no arrancó en $timeout segundos"
+                                    docker logs mplink_backend 2>&1
+                                    exit 1
+                                fi
+                            '''
                             
                             echo "📋 === LOGS COMPLETOS DEL BACKEND ==="
                             sh """
