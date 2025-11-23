@@ -243,7 +243,8 @@
 						{
 							"key": "images",
 							"type": "file",
-							"src": "/C:/Users/Joel/Downloads/gettyimages-489081568-612x612.jpg"
+							"src": "",
+							"disabled": true
 						}
 					]
 				},
@@ -306,7 +307,8 @@
 						{
 							"key": "images",
 							"type": "file",
-							"src": "/C:/Users/Joel/Downloads/mantenimiento.jpg"
+							"src": "",
+							"disabled": true
 						},
 						{
 							"key": "workingHours",
@@ -380,7 +382,8 @@
 						{
 							"key": "images",
 							"type": "file",
-							"src": "/C:/Users/Joel/Pictures/Screenshots/Captura de pantalla (2).png"
+							"src": "",
+							"disabled": true
 						},
 						{
 							"key": "availability",

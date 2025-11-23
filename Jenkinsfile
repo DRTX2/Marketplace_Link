@@ -304,12 +304,36 @@ pipeline {
                         
                         // Si es modo local, el backend ya debería estar disponible (se levantó en Validación Local)
                         // Solo verificamos rápidamente que esté disponible
+                        def backendNetwork = 'mplink_net'
                         if (params.TEST_LOCAL_DOCKER) {
                             echo "⏳ Verificando que el backend esté disponible..."
                             
-                            // Verificar que el servidor responda (puede ser redirect por seguridad)
+                            // Verificar que la red existe, si no, intentar obtenerla del contenedor
+                            def networkExists = sh(
+                                script: "docker network inspect ${backendNetwork} >/dev/null 2>&1 && echo 'exists' || echo 'notfound'",
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (networkExists == 'notfound') {
+                                // Intentar obtener la red del contenedor
+                                def detectedNetwork = sh(
+                                    script: 'docker inspect mplink_backend --format="{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}}{{end}}" 2>/dev/null | head -1 || echo ""',
+                                    returnStdout: true
+                                ).trim()
+                                
+                                if (detectedNetwork && !detectedNetwork.isEmpty()) {
+                                    backendNetwork = detectedNetwork
+                                    echo "🔍 Red detectada del contenedor: ${backendNetwork}"
+                                } else {
+                                    echo "⚠️ No se pudo detectar la red, usando: ${backendNetwork}"
+                                }
+                            }
+                            
+                            echo "🔗 Red Docker del backend: ${backendNetwork}"
+                            
+                            // Verificar que el servidor responda usando el nombre del contenedor
                             def httpCode = sh(
-                                script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health 2>/dev/null || echo "000"',
+                                script: "docker run --rm --network ${backendNetwork} curlimages/curl:latest -s -o /dev/null -w '%{http_code}' http://mplink_backend:8080/actuator/health 2>/dev/null || echo '000'",
                                 returnStdout: true
                             ).trim()
                             
@@ -317,6 +341,10 @@ pipeline {
                                 error("❌ El backend no está disponible. HTTP Code: ${httpCode}")
                             }
                             echo "✅ Backend está disponible (HTTP ${httpCode})"
+                            
+                            // Usar el nombre del contenedor como URL cuando esté en modo local
+                            testBaseUrl = 'http://mplink_backend:8080'
+                            echo "🔄 Cambiando BASE_URL a: ${testBaseUrl} (nombre del contenedor)"
                         }
                         
                         echo "🚀 Ejecutando tests con Docker (postman/newman:latest)..."
@@ -332,8 +360,12 @@ pipeline {
                             echo "   USER_EMAIL: ${env.POSTMAN_USER_EMAIL}"
                             
                             // Ejecutar newman dentro de un contenedor Docker
-                            // Si es modo local, usar network del host para acceder a localhost
-                            def dockerNetwork = params.TEST_LOCAL_DOCKER ? '--network host' : ''
+                            // Si es modo local, usar la misma red Docker que el backend
+                            def dockerNetwork = ''
+                            if (params.TEST_LOCAL_DOCKER) {
+                                dockerNetwork = "--network ${backendNetwork}"
+                                echo "   Usando red Docker: ${backendNetwork}"
+                            }
                             
                             sh """
                                 docker run --rm ${dockerNetwork} \
