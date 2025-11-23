@@ -2,12 +2,6 @@ server:
   port: ${SERVER_PORT:8080}
   address: 0.0.0.0  # Escuchar en todas las interfaces (necesario para Docker networking)
 
-logging:
-  level:
-    com.gpis.marketplace_link.security: INFO
-    org.springframework.security: INFO
-    root: INFO
-
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:mplink_postgres}:${DB_PORT:5432}/${DB_NAME:marketplace_db}
@@ -47,9 +41,11 @@ spring:
 
 logging:
   level:
+    com.gpis.marketplace_link.security: INFO
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    root: INFO
 
 management:
   endpoints:
