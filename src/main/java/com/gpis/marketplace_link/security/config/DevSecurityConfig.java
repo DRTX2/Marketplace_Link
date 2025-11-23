@@ -1,9 +1,8 @@
 package com.gpis.marketplace_link.security.config;
 
 import com.gpis.marketplace_link.security.filters.JwtAuthenticationFilter;
-import com.gpis.marketplace_link.security.filters.JwtValidationFilter;
+import com.gpis.marketplace_link.security.filters.JwtAuthorizationFilter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -16,10 +15,24 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+/**
+ * Configuración de seguridad específica para el entorno de desarrollo (perfil "dev").
+ *
+ * Esta clase define la cadena de filtros de Spring Security, habilita CORS y configura
+ * el manejo de sesiones sin estado (stateless) utilizando JWT para la autenticación.
+ *
+ * Se incluyen los filtros personalizados:
+ * - JwtAuthenticationFilter: maneja el proceso de login y generación del token.
+ * - JwtValidationFilter: valida los tokens JWT en las peticiones posteriores.
+ *
+ * Anotaciones principales:
+ * - @Configuration: indica que esta clase define beans de configuración.
+ * - @Profile("dev"): solo se activa cuando el perfil activo es "dev".
+ * - @RequiredArgsConstructor: simplifican la inyección de dependencias.
+ */
 @RequiredArgsConstructor
 @Configuration
 @Profile("dev")
-@Slf4j
 public class DevSecurityConfig {
 
     private final CorsConfigurationSource corsConfigurationSource;
@@ -42,7 +55,7 @@ public class DevSecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/password-reset/**").permitAll()
                         .anyRequest().permitAll())
                 .addFilter(jwtAuthenticationFilter)
-                .addFilter(new JwtValidationFilter(authManager))
+                .addFilter(new JwtAuthorizationFilter(authManager))
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(management ->

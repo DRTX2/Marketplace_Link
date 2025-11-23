@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tu apelación ha sido aprobada</title>
+</head>
+<body
+        style="
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #f4f6f8;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  "
+>
+<div
+        style="
+      max-width: 600px;
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    "
+>
+    <!-- Header -->
+    <div
+            style="
+        background: linear-gradient(90deg, #ffa726, #fb8c00);
+        color: #fff;
+        padding: 20px 30px;
+        text-align: center;
+      "
+    >
+        <h2 style="margin: 0; font-size: 22px;">¡Tu apelación ha sido aprobada!</h2>
+        <p style="margin: 6px 0 0; font-size: 15px; opacity: 0.9;">
+            Se ha restablecido la publicación correctamente
+        </p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 30px;">
+        <p style="font-size: 16px; margin-top: 0;">
+            Hola <strong>${fullName}</strong>,
+        </p>
+
+        <p style="font-size: 15px; line-height: 1.6; color: #444;">
+            Nos complace informarte que tu apelación relacionada con la publicación
+            <strong style="color: #fb8c00;">${publicationName}</strong> ha sido
+            <strong>aprobada</strong>.
+        </p>
+
+        <p style="font-size: 15px; color: #444;">
+            El estado de tu publicación ha sido actualizado y ahora está nuevamente
+            visible en el Marketplace. Puedes revisar todos los detalles desde tu
+            panel de control.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a
+                    href="{{dashboardUrl}}"
+                    style="
+            display: inline-block;
+            background-color: #fb8c00;
+            color: #fff;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: background-color 0.2s ease;
+          "
+            >Ir al panel de control</a
+            >
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+
+        <p style="font-size: 13px; color: #777; text-align: center;">
+            — Equipo de Moderación de
+            <span style="color: #fb8c00; font-weight: bold;">Marketplace</span>
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div
+            style="
+        background-color: #fafafa;
+        border-top: 1px solid #eee;
+        text-align: center;
+        padding: 14px;
+        font-size: 12px;
+        color: #999;
+      "
+    >
+        © 2025 Marketplace Link — Todos los derechos reservados.
+    </div>
+</div>
+</body>
+</html>

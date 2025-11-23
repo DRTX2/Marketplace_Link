@@ -14,20 +14,32 @@ import org.springframework.web.filter.CorsFilter;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Configuración global de CORS (Cross-Origin Resource Sharing).
+ *
+ * Esta clase define qué orígenes (dominios) pueden realizar peticiones
+ * a la API, qué métodos y cabeceras están permitidos y si se aceptan
+ * credenciales (cookies, headers de autenticación, etc.).
+ *
+ * Se utiliza tanto en los entornos de desarrollo como de producción,
+ * y es registrada de forma automática como filtro HTTP.
+ *
+ * Anotaciones principales:
+ * - @Configuration: indica que esta clase define beans de configuración.
+ */
 @Configuration
 public class CorsConfig {
 
-    @Value("${frontend.url}")
+    @Value("${FRONTEND_URL:http://localhost:3000}")
     private String frontendUrl;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(frontendUrl));
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH","DELETE"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         config.setAllowCredentials(true);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

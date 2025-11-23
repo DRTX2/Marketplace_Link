@@ -1,0 +1,431 @@
+{
+	"info": {
+		"_postman_id": "3ac75efc-4727-43c8-b767-d574f919f954",
+		"name": "MarketPlace System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "43731826",
+		"_collection_link": "https://joelbonilla-6024999.postman.co/workspace/Joel-Bonilla's-Workspace~eb067e51-830f-492d-8648-46208797b26f/collection/43731826-3ac75efc-4727-43c8-b767-d574f919f954?action=share&source=collection_link&creator=43731826"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-login si no hay token o si el token está expirado",
+					"const token = pm.environment.get('jwt_token');",
+					"const email = pm.environment.get('USER_EMAIL') || 'test@example.com';",
+					"const password = pm.environment.get('USER_PASSWORD') || 'password123';",
+					"",
+					"// Si no hay token, hacer login automático",
+					"if (!token) {",
+					"    const loginRequest = {",
+					"        url: pm.environment.get('BASE_URL') + '/api/auth/login',",
+					"        method: 'POST',",
+					"        header: {",
+					"            'Content-Type': 'application/json'",
+					"        },",
+					"        body: {",
+					"            mode: 'raw',",
+					"            raw: JSON.stringify({",
+					"                email: email,",
+					"                password: password",
+					"            })",
+					"        }",
+					"    };",
+					"    ",
+					"    pm.sendRequest(loginRequest, function (err, response) {",
+					"        if (!err && response.code === 200) {",
+					"            const jsonData = response.json();",
+					"            if (jsonData.token) {",
+					"                pm.environment.set('jwt_token', jsonData.token);",
+					"                console.log('Token JWT obtenido automáticamente');",
+					"            }",
+					"        }",
+					"    });",
+					"}"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.environment.set('jwt_token', jsonData.token);",
+									"        pm.environment.set('username', jsonData.username);",
+									"        console.log('Token JWT guardado: ' + jsonData.token.substring(0, 20) + '...');",
+									"        console.log('Usuario: ' + jsonData.username);",
+									"    }",
+									"}",
+									"",
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has token', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('token');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{USER_EMAIL}}\",\n    \"password\": \"{{USER_PASSWORD}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/auth/login",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Endpoint de autenticación. Guarda el token JWT automáticamente en la variable de entorno 'jwt_token'."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "getAll",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications/1",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getAll-by-vendor",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications/by-vendor?vendorId=5",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications",
+						"by-vendor"
+					],
+					"query": [
+						{
+							"key": "categoryIds",
+							"value": "1,2,3,4",
+							"disabled": true
+						},
+						{
+							"key": "vendorId",
+							"value": "5"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getOne",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications/4",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications",
+						"4"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "name",
+							"value": "Gatos",
+							"type": "text"
+						},
+						{
+							"key": "description",
+							"value": "A la venta con drogas  promocion de año nuevo",
+							"type": "text"
+						},
+						{
+							"key": "price",
+							"value": "20",
+							"type": "text"
+						},
+						{
+							"key": "latitude",
+							"value": "18",
+							"type": "text"
+						},
+						{
+							"key": "longitude",
+							"value": "12",
+							"type": "text"
+						},
+						{
+							"key": "categoryId",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "vendorId",
+							"value": "3",
+							"type": "text"
+						},
+						{
+							"key": "images",
+							"type": "file",
+							"src": "/C:/Users/Joel/Downloads/gettyimages-489081568-612x612.jpg"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update test",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "name",
+							"value": "Servicio de reparación de laptops",
+							"type": "text"
+						},
+						{
+							"key": "description",
+							"value": "Mantenimiento y limpieza interna de portátiles",
+							"type": "text"
+						},
+						{
+							"key": "price",
+							"value": "30",
+							"type": "text"
+						},
+						{
+							"key": "latitude",
+							"value": "18",
+							"type": "text"
+						},
+						{
+							"key": "longitude",
+							"value": "12",
+							"type": "text"
+						},
+						{
+							"key": "categoryId",
+							"value": "8",
+							"type": "text"
+						},
+						{
+							"key": "vendorId",
+							"value": "4",
+							"type": "text"
+						},
+						{
+							"key": "images",
+							"type": "file",
+							"src": "/C:/Users/Joel/Downloads/mantenimiento.jpg"
+						},
+						{
+							"key": "workingHours",
+							"value": "Lunes a Viernes de 10 am a 6 pm",
+							"type": "text"
+						},
+						{
+							"key": "availability",
+							"value": "AVAILABLE",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications/12",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications",
+						"12"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "name",
+							"value": "Zapatos",
+							"type": "text"
+						},
+						{
+							"key": "description",
+							"value": "a la venta  drogas con segunda promocion atualizada",
+							"type": "text"
+						},
+						{
+							"key": "price",
+							"value": "20",
+							"type": "text"
+						},
+						{
+							"key": "latitude",
+							"value": "18",
+							"type": "text"
+						},
+						{
+							"key": "longitude",
+							"value": "18",
+							"type": "text"
+						},
+						{
+							"key": "categoryId",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "vendorId",
+							"value": "4",
+							"type": "text"
+						},
+						{
+							"key": "images",
+							"type": "file",
+							"src": "/C:/Users/Joel/Pictures/Screenshots/Captura de pantalla (2).png"
+						},
+						{
+							"key": "availability",
+							"value": "UNAVAILABLE",
+							"type": "text"
+						},
+						{
+							"key": "workingHours",
+							"value": "de lunes a viernes",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications/2",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications",
+						"2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "delete",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/publications/12",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"publications",
+						"12"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

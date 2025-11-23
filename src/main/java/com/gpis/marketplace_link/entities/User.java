@@ -1,7 +1,7 @@
 package com.gpis.marketplace_link.entities;
 
-import com.gpis.marketplace_link.valueObjects.AccountStatus;
-import com.gpis.marketplace_link.valueObjects.Gender;
+import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.enums.Gender;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SoftDelete;
@@ -9,8 +9,10 @@ import org.hibernate.annotations.SoftDeleteType;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.locationtech.jts.geom.Point;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
 @Getter
@@ -80,9 +82,15 @@ public class User {
     )
     private Set<Role> roles;
 
+    @Column(name = "location", columnDefinition = "geography(Point, 4326)", nullable = true)
+    private Point location;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "account_status", nullable = false, length = 10)
-    private AccountStatus accountStatus = AccountStatus.ACTIVE;
+    private AccountStatus accountStatus = AccountStatus.PENDING_VERIFICATION;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -100,5 +108,8 @@ public class User {
                 " " +
                 (lastName != null ? lastName : "");
     }
+
+    @OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Publication> publications = new HashSet<>();
 
 }
