@@ -84,14 +84,14 @@ pipeline {
                         echo "🔍 Buscando colecciones Postman en tests/..."
                         def collectionFiles = []
                         
-                        // Buscar archivos JSON en tests/
+                        // Buscar archivos JSON en tests/ (sin duplicados)
                         def foundFiles = sh(
-                            script: "ls tests/*.json tests/*.postman_collection.json 2>/dev/null || true",
+                            script: "find tests -maxdepth 1 -name '*.json' -o -name '*.postman_collection.json' 2>/dev/null | sort -u || true",
                             returnStdout: true
                         ).trim()
                         
                         if (foundFiles) {
-                            collectionFiles = foundFiles.split('\n').findAll { it.trim() && it.endsWith('.json') }
+                            collectionFiles = foundFiles.split('\n').findAll { it.trim() && it.endsWith('.json') }.unique()
                         }
                         
                         if (collectionFiles.isEmpty()) {
@@ -147,23 +147,34 @@ pipeline {
             post {
                 always {
                     script {
-                        dir(env.PROJECT_DIR) {
-                            // Buscar archivos XML de resultados
-                            def xmlFiles = sh(
-                                script: "find target -name '*.xml' -type f 2>/dev/null || true",
-                                returnStdout: true
-                            ).trim()
-                            
-                            if (xmlFiles) {
-                                echo "📊 Archivos de resultados encontrados:"
-                                xmlFiles.split('\n').each { file ->
-                                    echo "   - ${file}"
-                                }
-                                junit "${env.PROJECT_DIR}/target/*.xml"
-                            } else {
-                                echo "⚠️ No se encontraron archivos XML de resultados en target/"
-                                sh "ls -la target/ || true"
+                        // Buscar archivos XML de resultados (path relativo al workspace raíz)
+                        def xmlFiles = sh(
+                            script: "find ${env.PROJECT_DIR}/target -name '*.xml' -type f 2>/dev/null || true",
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (xmlFiles) {
+                            echo "📊 Archivos de resultados encontrados:"
+                            xmlFiles.split('\n').each { file ->
+                                echo "   - ${file}"
                             }
+                            // JUnit necesita path relativo al workspace raíz
+                            def junitPath = "${env.PROJECT_DIR}/target/*.xml"
+                            echo "📋 Publicando resultados JUnit desde: ${junitPath}"
+                            try {
+                                junit junitPath
+                                echo "✅ Resultados JUnit publicados correctamente"
+                            } catch (Exception e) {
+                                echo "⚠️ Error al publicar resultados JUnit: ${e.getMessage()}"
+                                // Intentar con path absoluto
+                                def absPath = sh(script: "realpath ${env.PROJECT_DIR}/target/*.xml 2>/dev/null | head -1", returnStdout: true).trim()
+                                if (absPath) {
+                                    echo "📋 Intentando con path absoluto: ${absPath}"
+                                }
+                            }
+                        } else {
+                            echo "⚠️ No se encontraron archivos XML de resultados en ${env.PROJECT_DIR}/target/"
+                            sh "ls -la ${env.PROJECT_DIR}/target/ || true"
                         }
                     }
                 }
