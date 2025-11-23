@@ -6,6 +6,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;
@@ -54,20 +55,29 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
             throws AuthenticationException {
-        User user = null;
-        String userName = null;
+        String email = null;
         String password = null;
 
+        // Intentar leer como JSON genérico en vez de mapear a la entidad completa (evita fallos por campos faltantes)
         try {
-            user = new ObjectMapper().readValue(request.getInputStream(), User.class);
-            userName = user.getEmail();
-            password = user.getPassword();
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, String> creds = mapper.readValue(request.getInputStream(), new TypeReference<Map<String,String>>(){});
+            email = creds.getOrDefault("email", creds.getOrDefault("username", null));
+            password = creds.get("password");
         } catch (IOException e) {
-            throw new AuthenticationServiceException("Failed to parse authentication request body.", e);
+            // Intentar fallback con parámetros de formulario (por si el cuerpo estaba vacío o mal formateado)
+            email = request.getParameter("email");
+            if (email == null) {
+                email = request.getParameter("username");
+            }
+            password = request.getParameter("password");
         }
 
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userName,
-                password);
+        if (email == null || password == null || email.isBlank() || password.isBlank()) {
+            throw new AuthenticationServiceException("Missing credentials: email/password requeridos");
+        }
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email, password);
         return authenticationManager.authenticate(authenticationToken);
     }
 

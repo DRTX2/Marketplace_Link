@@ -445,14 +445,16 @@ pipeline {
                             
                             // NUEVO: Probar el endpoint de login directamente
                             echo "🔍 Probando endpoint de login directamente..."
-                            sh """
-                                docker run --rm --network ${backendNetwork} curlimages/curl:latest \
-                                    -X POST \
-                                    -H "Content-Type: application/json" \
-                                    -d '{"email":"test@example.com","password":"password123"}' \
-                                    -v \
-                                    http://mplink_backend:8080/api/auth/login 2>&1 | head -50
-                            """
+                                echo "🔍 Probando endpoint de login directamente (curl)..."
+                                sh """
+                                    docker run --rm --network ${backendNetwork} curlimages/curl:latest \
+                                        -X POST \
+                                        -H "Content-Type: application/json" \
+                                        --data '{"email":"test@example.com","password":"password123"}' \
+                                        -w '\nHTTP_CODE:%{http_code}\n' \
+                                        http://mplink_backend:8080/api/auth/login 2>&1 | head -80 || true
+                                """
+                                echo "🔍 Payload login mostrado arriba."
                         }
                         
                         // Ejecutar cada colección dentro de un contenedor Docker
