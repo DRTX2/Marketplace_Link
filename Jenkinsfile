@@ -111,7 +111,7 @@ pipeline {
         stage('Push Imagen') {
             when { expression { params.PUSH_DOCKER && params.BUILD_DOCKER } }
             steps {
-                withDockerRegistry([credentialsId: 'docker-registry-credentials']) {
+                withDockerRegistry([credentialsId: 'docker-registry-credentials', url: 'https://index.docker.io/v1/']) {
                     sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
                     sh "docker push ${env.DOCKER_IMAGE}:latest"
                 }
