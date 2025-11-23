@@ -9,10 +9,6 @@ pipeline {
     }
 
     environment {
-        JAVA_HOME = "${tool 'JDK-21'}"
-        MAVEN_HOME = "${tool 'Maven-3.9'}"
-        PATH = "${MAVEN_HOME}/bin:${JAVA_HOME}/bin:${env.PATH}"
-
         DOCKER_IMAGE = "marketplace-link-backend"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
     }
@@ -45,14 +41,6 @@ pipeline {
                     sh 'test -f pom.xml'
                     sh 'test -f Dockerfile'
                     sh 'echo "Validación OK"'
-                }
-            }
-        }
-
-        stage('Compilar Backend') {
-            steps {
-                dir('back') {
-                    sh 'mvn clean package -DskipTests=true'
                 }
             }
         }
@@ -94,16 +82,27 @@ pipeline {
             }
         }
 
-        stage('Construir Imagen Docker') {
+        stage('Construir Imagen Docker (con compilación)') {
             when { expression { params.BUILD_DOCKER } }
             steps {
                 dir('back') {
-                    sh """
-                        docker build \
-                            -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} \
-                            -t ${env.DOCKER_IMAGE}:latest \
-                            .
-                    """
+                    script {
+                        // Pasar metadatos de build a Docker
+                        def buildDate = sh(script: 'date -u +"%Y-%m-%d"', returnStdout: true).trim()
+                        def buildTime = sh(script: 'date -u +"%H:%M:%S"', returnStdout: true).trim()
+                        def gitCommit = env.GIT_COMMIT_SHORT ?: sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        
+                        sh """
+                            docker build \
+                                --build-arg BUILD_DATE="${buildDate}" \
+                                --build-arg BUILD_TIME="${buildTime}" \
+                                --build-arg GIT_COMMIT="${gitCommit}" \
+                                --build-arg VERSION="${env.BUILD_NUMBER}" \
+                                -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} \
+                                -t ${env.DOCKER_IMAGE}:latest \
+                                .
+                        """
+                    }
                 }
             }
         }
