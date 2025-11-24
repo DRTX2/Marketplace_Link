@@ -125,13 +125,13 @@ pipeline {
                             // Limpiar contenedores previos si existen
                             sh """
                                 ${dockerComposeCmd} -f ${composeFile} down -v 2>/dev/null || true
-                                docker stop mplink_backend mplink_marketplace_db mplink_marketplace_test_db mplink_postgres mplink_postgres_test 2>/dev/null || true
-                                docker rm mplink_backend mplink_marketplace_db mplink_marketplace_test_db mplink_postgres mplink_postgres_test 2>/dev/null || true
+                                docker stop mplink-backend mplink-marketplace-db mplink-marketplace-test-db mplink-postgres mplink-postgres-test 2>/dev/null || true
+                                docker rm mplink-backend mplink-marketplace-db mplink-marketplace-test-db mplink-postgres mplink-postgres-test 2>/dev/null || true
                             """
                             
                             // Etiquetar la imagen construida para que docker-compose la use
                             sh """
-                                docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} mplink_backend:latest
+                                docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} mplink-backend:latest
                             """
                             
                             // Levantar solo backend y BD (sin frontend para pruebas más rápidas)
@@ -139,7 +139,7 @@ pipeline {
                             def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
                             dir(composeDir) {
                             sh """
-                                    ${dockerComposeCmd} -f ${composeFile} up -d mplink_postgres mplink_postgres_test mplink_backend
+                                    ${dockerComposeCmd} -f ${composeFile} up -d mplink-postgres mplink-postgres-test mplink-backend
                             """
                             }
                             
@@ -152,9 +152,9 @@ pipeline {
                                 elapsed=0
                                 db_ready=false
                                 
-                                # Intentar con mplink_marketplace_db (back/docker-compose.yml)
-                                until docker exec mplink_marketplace_db pg_isready -U postgres -d marketplace_db > /dev/null 2>&1 2>/dev/null || \
-                                      docker exec mplink_postgres pg_isready -U mplink_user -d marketplace_link > /dev/null 2>&1; do
+                                # Intentar con mplink-marketplace-db (back/docker-compose.yml)
+                                until docker exec mplink-marketplace-db pg_isready -U postgres -d marketplace_db > /dev/null 2>&1 2>/dev/null || \
+                                      docker exec mplink-postgres pg_isready -U mplink_user -d marketplace_link > /dev/null 2>&1; do
                                     if [ $elapsed -ge $timeout ]; then
                                         echo "❌ Timeout esperando la base de datos"
                                         docker ps -a | grep postgres || true
@@ -176,7 +176,7 @@ pipeline {
                                 
                                 while [ \$elapsed -lt \$timeout ]; do
                                     # Verificar healthcheck de Docker
-                                    health_status=\$(docker inspect --format='{{.State.Health.Status}}' mplink_backend 2>/dev/null || echo "none")
+                                    health_status=\$(docker inspect --format='{{.State.Health.Status}}' mplink-backend 2>/dev/null || echo "none")
                                     
                                     if [ "\$health_status" = "healthy" ]; then
                                         echo "✅ Backend está healthy según Docker"
@@ -203,7 +203,7 @@ pipeline {
                                     echo "=== Estado de contenedores ==="
                                     docker ps -a | grep mplink || true
                                     echo "=== Logs del Backend ==="
-                                    ${dockerComposeCmd} -f ${composeFile} logs mplink_backend || docker logs mplink_backend || true
+                                    ${dockerComposeCmd} -f ${composeFile} logs mplink-backend || docker logs mplink-backend || true
                                     exit 1
                                 fi
                             """
@@ -312,13 +312,13 @@ pipeline {
                         
                         // Verificar si el contenedor del backend está corriendo
                         def containerStatus = sh(
-                            script: 'docker ps --filter "name=mplink_backend" --format "{{.Names}}" 2>/dev/null | head -1 || echo ""',
+                            script: 'docker ps --filter "name=mplink-backend" --format "{{.Names}}" 2>/dev/null | head -1 || echo ""',
                             returnStdout: true
                         ).trim()
                         
-                        if (containerStatus == 'mplink_backend') {
+                        if (containerStatus == 'mplink-backend') {
                             backendContainerRunning = true
-                            echo "🔍 Contenedor mplink_backend detectado corriendo"
+                            echo "🔍 Contenedor mplink-backend detectado corriendo"
                         }
                         
                         // Determinar si debemos usar la red Docker
@@ -337,7 +337,7 @@ pipeline {
                             // docker-compose crea redes con prefijo del directorio, así que buscamos por el contenedor
                             // Método más confiable: obtener el ID de red del contenedor y luego el nombre
                             def networkId = sh(
-                                script: 'docker inspect mplink_backend 2>/dev/null | grep -A 5 "Networks" | grep "NetworkID" | head -1 | cut -d\\" -f4 || echo ""',
+                                script: 'docker inspect mplink-backend 2>/dev/null | grep -A 5 "Networks" | grep "NetworkID" | head -1 | cut -d\\" -f4 || echo ""',
                                 returnStdout: true
                             ).trim()
                             
@@ -363,14 +363,14 @@ pipeline {
                             } else {
                                 echo "⚠️ No se pudo detectar la red automáticamente"
                                 echo "   Intentando con el nombre por defecto: ${backendNetwork}"
-                                echo "   Si falla, verifica que el contenedor mplink_backend esté corriendo"
+                                echo "   Si falla, verifica que el contenedor mplink-backend esté corriendo"
                             }
                             
                             echo "🔗 Red Docker del backend: ${backendNetwork}"
                             
                             // Verificar que el servidor responda usando el nombre del contenedor
                             def httpCode = sh(
-                                script: "docker run --rm --network ${backendNetwork} curlimages/curl:latest -s -o /dev/null -w '%{http_code}' http://mplink_backend:8080/actuator/health 2>/dev/null || echo '000'",
+                                script: "docker run --rm --network ${backendNetwork} curlimages/curl:latest -s -o /dev/null -w '%{http_code}' http://mplink-backend:8080/actuator/health 2>/dev/null || echo '000'",
                                 returnStdout: true
                             ).trim()
                             
@@ -380,7 +380,7 @@ pipeline {
                             echo "✅ Backend está disponible (HTTP ${httpCode})"
                             
                             // Usar el nombre del contenedor como URL cuando usamos la red Docker
-                            testBaseUrl = 'http://mplink_backend:8080'
+                            testBaseUrl = 'http://mplink-backend:8080'
                             echo "🔄 Cambiando BASE_URL a: ${testBaseUrl} (nombre del contenedor)"
                         } else if (testBaseUrl.contains('localhost') && !backendContainerRunning) {
                             echo "⚠️ Advertencia: URL localhost pero no se detectó contenedor Docker corriendo"
@@ -400,7 +400,7 @@ pipeline {
                                 
                                 while [ $elapsed -lt $timeout ]; do
                                     # Verificar si el log contiene "Started BackApplication"
-                                    if docker logs mplink_backend 2>&1 | grep -q "Started BackApplication"; then
+                                    if docker logs mplink-backend 2>&1 | grep -q "Started BackApplication"; then
                                         echo "✅ Spring Boot ha arrancado completamente"
                                         app_ready=true
                                         break
@@ -413,33 +413,33 @@ pipeline {
                                 
                                 if [ "$app_ready" != "true" ]; then
                                     echo "❌ ERROR: Spring Boot no arrancó en $timeout segundos"
-                                    docker logs mplink_backend 2>&1
+                                    docker logs mplink-backend 2>&1
                                     exit 1
                                 fi
                             '''
                             
                             echo "📋 === LOGS COMPLETOS DEL BACKEND ==="
                             sh """
-                                docker logs mplink_backend 2>&1 || true
+                                docker logs mplink-backend 2>&1 || true
                             """
                             echo "📋 === FIN LOGS DEL BACKEND ==="
                             
                             // Verificar estado del contenedor
                             echo "🔍 Estado del contenedor backend..."
                             sh """
-                                docker inspect mplink_backend --format='{{.State.Status}}: {{.State.Health.Status}}' 2>/dev/null || echo "No disponible"
+                                docker inspect mplink-backend --format='{{.State.Status}}: {{.State.Health.Status}}' 2>/dev/null || echo "No disponible"
                             """
                             
                             // Verificar si el proceso Java está corriendo
                             echo "🔍 Verificando proceso Java..."
                             sh """
-                                docker exec mplink_backend ps aux | grep java || echo "⚠️ Proceso Java no encontrado"
+                                docker exec mplink-backend ps aux | grep java || echo "⚠️ Proceso Java no encontrado"
                             """
                             
                             // Intentar conectarse al puerto 8080 desde dentro del contenedor
                             echo "🔍 Verificando conectividad interna al puerto 8080..."
                             sh """
-                                docker exec mplink_backend curl -s -o /dev/null -w "HTTP %{http_code}" http://localhost:8080/actuator/health 2>&1 || \
+                                docker exec mplink-backend curl -s -o /dev/null -w "HTTP %{http_code}" http://localhost:8080/actuator/health 2>&1 || \
                                 echo "⚠️ curl falló - el backend puede no estar escuchando en 8080"
                             """
                             
@@ -452,10 +452,10 @@ pipeline {
                                         -H 'Content-Type: application/json' \\
                                         -d '{"email":"test@example.com","password":"password123"}' \\
                                         -w '\\nHTTP_CODE:%{http_code}\\n' \\
-                                        http://mplink_backend:8080/api/auth/login 2>&1 | head -100 || true
+                                        http://mplink-backend:8080/api/auth/login 2>&1 | head -100 || true
                                 """
                                 echo "🔍 Verificando logs del backend después del intento de login..."
-                                sh "docker logs --tail 50 mplink_backend 2>&1 | grep -E '(JWT-LOGIN|ERROR|WARN|attemptAuthentication)' || echo 'Sin logs relevantes'"
+                                sh "docker logs --tail 50 mplink-backend 2>&1 | grep -E '(JWT-LOGIN|ERROR|WARN|attemptAuthentication)' || echo 'Sin logs relevantes'"
                         }
                         
                         // Ejecutar cada colección dentro de un contenedor Docker

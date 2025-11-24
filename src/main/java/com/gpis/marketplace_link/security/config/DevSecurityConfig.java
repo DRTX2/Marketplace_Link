@@ -15,6 +15,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+
 /**
  * Configuración de seguridad específica para el entorno de desarrollo (perfil "dev").
  *
@@ -32,6 +34,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
  */
 @RequiredArgsConstructor
 @Configuration
+@EnableWebSecurity
 @Profile("dev")
 public class DevSecurityConfig {
 
@@ -53,7 +56,10 @@ public class DevSecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll() // Health check PRIMERO
                         .requestMatchers(HttpMethod.POST, "/api/users/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/password-reset/**").permitAll()
-                        .anyRequest().permitAll())
+                        // Permitir endpoints públicos adicionales si es necesario
+                        .requestMatchers(HttpMethod.GET, "/api/publications/**").permitAll() 
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        .anyRequest().authenticated())
                 .addFilter(jwtAuthenticationFilter)
                 .addFilter(new JwtAuthorizationFilter(authManager))
                 .csrf(AbstractHttpConfigurer::disable)
