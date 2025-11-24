@@ -573,18 +573,27 @@ pipeline {
         stage('Deploy to Azure') {
             when { expression { params.DEPLOY_ENV != 'none' && params.BUILD_DOCKER } }
             steps {
-                withCredentials([azureServicePrincipal('azure-credentials-id')]) {
-                    sh """
-                        az login --service-principal \
-                            -u $AZURE_CLIENT_ID \
-                            -p $AZURE_CLIENT_SECRET \
-                            --tenant $AZURE_TENANT_ID
-
-                        az containerapp update \
-                            --name marketplace-link-backend \
-                            --resource-group mi-grupo \
-                            --image ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}
-                    """
+                script {
+                    withCredentials([azureServicePrincipal('azure-credentials-id')]) {
+                        // Usar Azure CLI desde Docker para evitar instalación en Jenkins
+                        sh """
+                            docker run --rm \
+                                -e AZURE_CLIENT_ID='${AZURE_CLIENT_ID}' \
+                                -e AZURE_CLIENT_SECRET='${AZURE_CLIENT_SECRET}' \
+                                -e AZURE_TENANT_ID='${AZURE_TENANT_ID}' \
+                                mcr.microsoft.com/azure-cli:latest \
+                                bash -c "
+                                    az login --service-principal \
+                                        -u \\\$AZURE_CLIENT_ID \
+                                        -p \\\$AZURE_CLIENT_SECRET \
+                                        --tenant \\\$AZURE_TENANT_ID && \
+                                    az containerapp update \
+                                        --name marketplace-link-backend \
+                                        --resource-group mi-grupo \
+                                        --image ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}
+                                "
+                        """
+                    }
                 }
             }
         }
