@@ -9,7 +9,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_IMAGE = "marketplace-link-backend"
+        DOCKER_IMAGE = "drtx2/marketplace-link-backend"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
         
         // Variables para tests Postman (con valores por defecto)
