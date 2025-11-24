@@ -122,11 +122,19 @@ pipeline {
                             def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
                             echo "📁 Usando docker-compose: ${composeFile}"
                             
-                            // Limpiar contenedores previos si existen
+                            // Limpiar TODOS los contenedores (nuevos y viejos) y liberar puertos
                             sh """
+                                # Parar servicios con docker-compose
                                 ${dockerComposeCmd} -f ${composeFile} down -v 2>/dev/null || true
-                                docker stop mplink-backend mplink-marketplace-db mplink-marketplace-test-db mplink-postgres mplink-postgres-test 2>/dev/null || true
-                                docker rm mplink-backend mplink-marketplace-db mplink-marketplace-test-db mplink-postgres mplink-postgres-test 2>/dev/null || true
+                                
+                                # Forzar stop/rm de TODOS los contenedores relacionados (viejos y nuevos)
+                                docker stop mplink-backend mplink-marketplace-db mplink-marketplace-test-db mplink-postgres mplink-postgres-test mplink-frontend 2>/dev/null || true
+                                docker stop mplink_backend mplink_marketplace_db mplink_marketplace_test_db mplink_postgres mplink_postgres_test mplink_frontend 2>/dev/null || true
+                                docker rm mplink-backend mplink-marketplace-db mplink-marketplace-test-db mplink-postgres mplink-postgres-test mplink-frontend 2>/dev/null || true
+                                docker rm mplink_backend mplink_marketplace_db mplink_marketplace_test_db mplink_postgres mplink_postgres_test mplink_frontend 2>/dev/null || true
+                                
+                                # Verificar que no queden contenedores huérfanos
+                                docker ps -a | grep mplink || echo "✅ No hay contenedores mplink residuales"
                             """
                             
                             // Etiquetar la imagen construida para que docker-compose la use
