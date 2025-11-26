@@ -652,7 +652,7 @@ pipeline {
                                         -p \\\$AZURE_CLIENT_SECRET \
                                         --tenant \\\$AZURE_TENANT_ID && \
                                     az containerapp update \
-                                        --name marketplace-link-backend \
+                                        --name mplink-backend \
                                         --resource-group mi-grupo \
                                         --image ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}
                                 "
@@ -665,7 +665,9 @@ pipeline {
         stage('Limpiar Contenedores de Prueba') {
             when { 
                 expression { 
-                    params.TEST_LOCAL_DOCKER && params.BUILD_DOCKER 
+                    // Solo limpiar si NO se está ejecutando TEST_LOCAL_DOCKER
+                    // Esto permite que el contenedor quede activo para los tests del frontend
+                    params.BUILD_DOCKER && !params.TEST_LOCAL_DOCKER
                 } 
             }
             steps {
@@ -686,6 +688,35 @@ pipeline {
                             # Limpiar imágenes dangling si las hay
                             docker image prune -f || true
                         """
+                    }
+                }
+            }
+        }
+        
+        stage('Mantener Backend Activo para Tests Frontend') {
+            when { 
+                expression { 
+                    // Mantener el backend activo si se ejecutaron tests locales
+                    params.TEST_LOCAL_DOCKER && params.BUILD_DOCKER 
+                } 
+            }
+            steps {
+                script {
+                    echo "🔵 Manteniendo contenedor backend activo para tests del frontend"
+                    echo "   El contenedor 'mplink-backend' quedará corriendo para que los tests E2E puedan usarlo"
+                    echo "   Para limpiarlo manualmente, ejecuta: docker-compose down"
+                    
+                    // Verificar que el contenedor está corriendo
+                    def containerStatus = sh(
+                        script: 'docker ps --filter "name=mplink-backend" --format "{{.Names}}: {{.Status}}" 2>/dev/null || echo "No encontrado"',
+                        returnStdout: true
+                    ).trim()
+                    
+                    if (containerStatus && !containerStatus.contains("No encontrado")) {
+                        echo "✅ Backend activo: ${containerStatus}"
+                        echo "   URL: http://localhost:8080"
+                    } else {
+                        echo "⚠️ Advertencia: El contenedor backend no está corriendo"
                     }
                 }
             }
