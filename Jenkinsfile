@@ -119,8 +119,8 @@ pipeline {
                             echo "🚀 Levantando servicios con docker-compose para validación..."
                             echo "Usando comando: ${dockerComposeCmd}"
                             
-                            // Determinar qué docker-compose usar (raíz del proyecto o back/)
-                            def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
+                            // Usar docker-compose.back.yml (solo backend y bases de datos)
+                            def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
                             echo "📁 Usando docker-compose: ${composeFile}"
                             
                             // Limpiar TODOS los contenedores (nuevos y viejos) y liberar puertos
@@ -143,9 +143,8 @@ pipeline {
                                 docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} mplink-backend:latest
                             """
                             
-                            // Levantar solo backend y BD (sin frontend para pruebas más rápidas)
-                            // Usar el docker-compose desde la ubicación correcta
-                            def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
+                            // Levantar solo backend y BD usando docker-compose.back.yml
+                            def composeDir = fileExists('docker-compose.back.yml') ? '.' : '..'
                             dir(composeDir) {
                             sh """
                                     ${dockerComposeCmd} -f ${composeFile} up -d mplink-postgres mplink-postgres-test mplink-backend
@@ -161,7 +160,7 @@ pipeline {
                                 elapsed=0
                                 db_ready=false
                                 
-                                # Intentar con mplink-marketplace-db (back/docker-compose.yml)
+                                # Intentar con mplink-marketplace-db (back/docker-compose.back.yml)
                                 until docker exec mplink-marketplace-db pg_isready -U postgres -d marketplace_db > /dev/null 2>&1 2>/dev/null || \
                                       docker exec mplink-postgres pg_isready -U mplink_user -d marketplace_link > /dev/null 2>&1; do
                                     if [ $elapsed -ge $timeout ]; then
@@ -250,7 +249,7 @@ pipeline {
                         } catch (Exception e) {
                             echo "❌ Error durante la validación local: ${e.getMessage()}"
                             // Mostrar logs en caso de error
-                            def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
+                            def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
                             sh """
                                 echo "=== Estado de contenedores ==="
                                 docker ps -a | grep mplink || true
@@ -278,14 +277,21 @@ pipeline {
             steps {
                 dir(env.PROJECT_DIR) {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        script {
-                        // Si TEST_LOCAL_DOCKER está habilitado, usar la URL local
+                    script {
+                        // Verificar si el backend está corriendo localmente
+                        def backendContainerRunning = sh(
+                            script: 'docker ps --filter "name=mplink-backend" --format "{{.Names}}" 2>/dev/null | head -1 || echo ""',
+                            returnStdout: true
+                        ).trim() == 'mplink-backend'
+                        
+                        // Si TEST_LOCAL_DOCKER está habilitado o el backend está corriendo localmente, usar la URL local
                         // Si no, usar la URL configurada (puede ser staging/production)
-                        def testBaseUrl = params.TEST_LOCAL_DOCKER ? 'http://localhost:8080' : env.POSTMAN_BASE_URL
+                        def testBaseUrl = (params.TEST_LOCAL_DOCKER || backendContainerRunning) ? 'http://localhost:8080' : env.POSTMAN_BASE_URL
                         
                         echo "🧪 Configuración de Tests Postman:"
-                        echo "   BASE_URL: ${testBaseUrl}"
-                        echo "   Modo: ${params.TEST_LOCAL_DOCKER ? 'Local (docker-compose)' : 'Remoto'}"
+                        echo "   BASE_URL inicial: ${testBaseUrl}"
+                        echo "   Backend corriendo localmente: ${backendContainerRunning}"
+                        echo "   Modo: ${(params.TEST_LOCAL_DOCKER || backendContainerRunning) ? 'Local (docker-compose)' : 'Remoto'}"
                         
                         // Crear directorio target si no existe
                         sh 'mkdir -p target'
@@ -337,32 +343,14 @@ pipeline {
                         }
                         
                         // Detectar si necesitamos usar la red Docker
-                        // Esto es necesario cuando:
-                        // 1. TEST_LOCAL_DOCKER está habilitado, O
-                        // 2. La URL es localhost y hay un contenedor Docker corriendo
+                        // Esto es necesario cuando el backend está corriendo localmente en Docker
                         def backendNetwork = 'mplink_net'
                         def useDockerNetwork = false
-                        def backendContainerRunning = false
-                        
-                        // Verificar si el contenedor del backend está corriendo
-                        def containerStatus = sh(
-                            script: 'docker ps --filter "name=mplink-backend" --format "{{.Names}}" 2>/dev/null | head -1 || echo ""',
-                            returnStdout: true
-                        ).trim()
-                        
-                        if (containerStatus == 'mplink-backend') {
-                            backendContainerRunning = true
-                            echo "🔍 Contenedor mplink-backend detectado corriendo"
-                        }
                         
                         // Determinar si debemos usar la red Docker
-                        if (params.TEST_LOCAL_DOCKER) {
+                        if (backendContainerRunning) {
                             useDockerNetwork = true
-                            echo "📍 Modo local: usando red Docker"
-                        } else if (testBaseUrl.contains('localhost') && backendContainerRunning) {
-                            useDockerNetwork = true
-                            echo "📍 URL localhost con contenedor Docker detectado: usando red Docker"
-                        }
+                            echo "📍 Backend detectado corriendo: usando red Docker para conectar"
                         
                         if (useDockerNetwork) {
                             echo "⏳ Verificando que el backend esté disponible..."
@@ -417,8 +405,72 @@ pipeline {
                             testBaseUrl = 'http://mplink-backend:8080'
                             echo "🔄 Cambiando BASE_URL a: ${testBaseUrl} (nombre del contenedor)"
                         } else if (testBaseUrl.contains('localhost') && !backendContainerRunning) {
-                            echo "⚠️ Advertencia: URL localhost pero no se detectó contenedor Docker corriendo"
-                            echo "   El contenedor de Newman intentará conectarse a localhost:8080 del host"
+                            echo "⚠️ ADVERTENCIA: URL localhost pero no se detectó contenedor Docker corriendo"
+                            echo "   El backend debe estar corriendo antes de ejecutar los tests"
+                            echo "   Iniciando backend con docker-compose..."
+                            
+                            // Intentar iniciar el backend si no está corriendo
+                            def dockerComposeCmd = sh(
+                                script: 'command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" || echo "docker compose"',
+                                returnStdout: true
+                            ).trim()
+                            
+                            def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
+                            def composeDir = fileExists('docker-compose.back.yml') ? '.' : '..'
+                            
+                            dir(composeDir) {
+                                sh """
+                                    ${dockerComposeCmd} -f ${composeFile} up -d mplink-postgres mplink-postgres-test mplink-backend
+                                """
+                            }
+                            
+                            // Esperar a que el backend esté listo
+                            echo "⏳ Esperando a que el backend esté listo..."
+                            sh '''
+                                timeout=180
+                                elapsed=0
+                                backend_ready=false
+                                
+                                while [ $elapsed -lt $timeout ]; do
+                                    http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health 2>/dev/null || echo "000")
+                                    if [ "$http_code" != "000" ] && [ "$http_code" -lt 500 ]; then
+                                        echo "✅ Backend está respondiendo (HTTP $http_code)"
+                                        backend_ready=true
+                                        break
+                                    fi
+                                    echo "⏳ Esperando backend... ($elapsed segundos)"
+                                    sleep 5
+                                    elapsed=$((elapsed + 5))
+                                done
+                                
+                                if [ "$backend_ready" != "true" ]; then
+                                    echo "❌ Timeout esperando el backend"
+                                    exit 1
+                                fi
+                            '''
+                            
+                            // Ahora que el backend está corriendo, usar la red Docker
+                            backendContainerRunning = true
+                            useDockerNetwork = true
+                            
+                            // Obtener la red del contenedor
+                            def networkId = sh(
+                                script: 'docker inspect mplink-backend 2>/dev/null | grep -A 5 "Networks" | grep "NetworkID" | head -1 | cut -d\\" -f4 || echo ""',
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (networkId && !networkId.isEmpty()) {
+                                def detectedNetwork = sh(
+                                    script: "docker network inspect ${networkId} --format '{{.Name}}' 2>/dev/null || echo ''",
+                                    returnStdout: true
+                                ).trim()
+                                if (detectedNetwork && !detectedNetwork.isEmpty()) {
+                                    backendNetwork = detectedNetwork
+                                }
+                            }
+                            
+                            testBaseUrl = 'http://mplink-backend:8080'
+                            echo "🔄 Cambiando BASE_URL a: ${testBaseUrl} (nombre del contenedor)"
                         }
                         
                         echo "🚀 Ejecutando tests con Docker (postman/newman:latest)..."
@@ -477,19 +529,19 @@ pipeline {
                                 echo "⚠️ curl falló - el backend puede no estar escuchando en 8080"
                             """
                             
-                            // NUEVO: Probar el endpoint de login directamente
+                            // Probar el endpoint de login directamente (usando /login, no /api/auth/login)
                             echo "🔍 Probando endpoint de login directamente..."
-                                echo "🔍 Probando endpoint de login directamente (curl)..."
-                                sh """
-                                    docker run --rm --network ${backendNetwork} curlimages/curl:latest \\
-                                        -v -X POST \\
-                                        -H 'Content-Type: application/json' \\
-                                        -d '{"email":"test@example.com","password":"password123"}' \\
-                                        -w '\\nHTTP_CODE:%{http_code}\\n' \\
-                                        http://mplink-backend:8080/api/auth/login 2>&1 | head -100 || true
-                                """
-                                echo "🔍 Verificando logs del backend después del intento de login..."
-                                sh "docker logs --tail 50 mplink-backend 2>&1 | grep -E '(JWT-LOGIN|ERROR|WARN|attemptAuthentication)' || echo 'Sin logs relevantes'"
+                            echo "🔍 Probando endpoint de login directamente (curl)..."
+                            sh """
+                                docker run --rm --network ${backendNetwork} curlimages/curl:latest \\
+                                    -v -X POST \\
+                                    -H 'Content-Type: application/json' \\
+                                    -d '{"email":"test@example.com","password":"password123"}' \\
+                                    -w '\\nHTTP_CODE:%{http_code}\\n' \\
+                                    http://mplink-backend:8080/login 2>&1 | head -100 || true
+                            """
+                            echo "🔍 Verificando logs del backend después del intento de login..."
+                            sh "docker logs --tail 50 mplink-backend 2>&1 | grep -E '(JWT-LOGIN|ERROR|WARN|attemptAuthentication)' || echo 'Sin logs relevantes'"
                         }
                         
                         // Ejecutar cada colección dentro de un contenedor Docker
@@ -694,9 +746,9 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     
-                    // Determinar qué docker-compose usar
-                    def composeFile = fileExists("${env.PROJECT_DIR}/../docker-compose.yml") ? "${env.PROJECT_DIR}/../docker-compose.yml" : "${env.PROJECT_DIR}/docker-compose.yml"
-                    def composeDir = fileExists("${env.PROJECT_DIR}/../docker-compose.yml") ? ".." : env.PROJECT_DIR
+                    // Usar docker-compose.back.yml (solo backend y bases de datos)
+                    def composeFile = fileExists("${env.PROJECT_DIR}/docker-compose.back.yml") ? "${env.PROJECT_DIR}/docker-compose.back.yml" : "../docker-compose.back.yml"
+                    def composeDir = fileExists("${env.PROJECT_DIR}/docker-compose.back.yml") ? env.PROJECT_DIR : ".."
                     
                     echo "🧹 Limpiando contenedores de prueba..."
                     dir(composeDir) {
@@ -724,8 +776,8 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     
-                        def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
-                        def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
+                        def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
+                        def composeDir = fileExists('docker-compose.back.yml') ? '.' : '..'
 
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             echo "🔁 Asegurando backend corriendo en http://localhost:8080..."
