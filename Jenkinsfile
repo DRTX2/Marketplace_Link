@@ -276,9 +276,9 @@ pipeline {
                 } 
             }
             steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                 dir(env.PROJECT_DIR) {
-                    script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        script {
                         // Si TEST_LOCAL_DOCKER está habilitado, usar la URL local
                         // Si no, usar la URL configurada (puede ser staging/production)
                         def testBaseUrl = params.TEST_LOCAL_DOCKER ? 'http://localhost:8080' : env.POSTMAN_BASE_URL
@@ -756,5 +756,4 @@ pipeline {
             echo "Build finalizado con estado: ${currentBuild.currentResult}"
         }
     }
-}
-}
+}}
