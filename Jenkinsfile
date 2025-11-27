@@ -276,9 +276,9 @@ pipeline {
                 } 
             }
             steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                 dir(env.PROJECT_DIR) {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        script {
+                    script {
                         // Si TEST_LOCAL_DOCKER está habilitado, usar la URL local
                         // Si no, usar la URL configurada (puede ser staging/production)
                         def testBaseUrl = params.TEST_LOCAL_DOCKER ? 'http://localhost:8080' : env.POSTMAN_BASE_URL
@@ -516,27 +516,27 @@ pipeline {
                             
                         // Obtener la ruta absoluta del workspace actual (dentro de /var/jenkins_home)
                         def workspaceAbsolutePath = sh(
-                            script: "pwd",
-                            returnStdout: true
-                        ).trim()
-
+                                    script: "pwd",
+                                    returnStdout: true
+                                ).trim()
+                                
                         echo "   📁 Workspace absoluto: ${workspaceAbsolutePath}"
                         echo "   📄 Archivo de colección: ${collectionFile}"
 
                         // Verificar estado del directorio uploads (ya accesible dentro del volumen de Jenkins)
                         if (uploadsExists) {
                             def uploadsAbsolutePath = "${workspaceAbsolutePath}/${uploadsDir}"
-                            def uploadsPathExists = sh(
-                                script: "test -d \"${uploadsAbsolutePath}\" && echo 'exists' || echo 'notfound'",
-                                returnStdout: true
-                            ).trim()
-
-                            if (uploadsPathExists == 'exists') {
+                                def uploadsPathExists = sh(
+                                    script: "test -d \"${uploadsAbsolutePath}\" && echo 'exists' || echo 'notfound'",
+                                    returnStdout: true
+                                ).trim()
+                                
+                                if (uploadsPathExists == 'exists') {
                                 echo "   📸 Directorio uploads disponible en: ${uploadsAbsolutePath}"
-                            } else {
+                                } else {
                                 echo "   ⚠️ uploads/ no encontrado en ${uploadsAbsolutePath}"
-                            }
-                        } else {
+                                }
+                            } else {
                             echo "   ⚠️ uploads/ no existe dentro del proyecto; algunas pruebas podrían fallar"
                         }
 
@@ -556,9 +556,9 @@ pipeline {
                         }
 
                         def jenkinsVolumeMount = "-v ${jenkinsVolumeName}:/var/jenkins_home"
-
-                        sh """
-                            docker run --rm ${dockerNetwork} \
+                            
+                            sh """
+                                docker run --rm ${dockerNetwork} \
                                 ${jenkinsVolumeMount} \
                                 -w "${workspaceAbsolutePath}" \
                                     -e BASE_URL="${testBaseUrl}" \
@@ -721,12 +721,12 @@ pipeline {
             }
             steps {
                 dir(env.PROJECT_DIR) {
-                    script {
+                script {
                         def dockerComposeCmd = sh(
                             script: 'command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" || echo "docker compose"',
-                            returnStdout: true
-                        ).trim()
-
+                        returnStdout: true
+                    ).trim()
+                    
                         def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
                         def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
 
