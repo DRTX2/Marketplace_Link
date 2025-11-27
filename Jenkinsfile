@@ -120,7 +120,7 @@ pipeline {
                             echo "Usando comando: ${dockerComposeCmd}"
                             
                             // Determinar qué docker-compose usar (raíz del proyecto o back/)
-                            def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
+                            def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
                             echo "📁 Usando docker-compose: ${composeFile}"
                             
                             // Limpiar TODOS los contenedores (nuevos y viejos) y liberar puertos
@@ -145,7 +145,7 @@ pipeline {
                             
                             // Levantar solo backend y BD (sin frontend para pruebas más rápidas)
                             // Usar el docker-compose desde la ubicación correcta
-                            def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
+                            def composeDir = '.'
                             dir(composeDir) {
                             sh """
                                     ${dockerComposeCmd} -f ${composeFile} up -d mplink-postgres mplink-postgres-test mplink-backend
@@ -250,7 +250,7 @@ pipeline {
                         } catch (Exception e) {
                             echo "❌ Error durante la validación local: ${e.getMessage()}"
                             // Mostrar logs en caso de error
-                            def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
+                            def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
                             sh """
                                 echo "=== Estado de contenedores ==="
                                 docker ps -a | grep mplink || true
@@ -695,8 +695,8 @@ pipeline {
                     ).trim()
                     
                     // Determinar qué docker-compose usar
-                    def composeFile = fileExists("${env.PROJECT_DIR}/../docker-compose.yml") ? "${env.PROJECT_DIR}/../docker-compose.yml" : "${env.PROJECT_DIR}/docker-compose.yml"
-                    def composeDir = fileExists("${env.PROJECT_DIR}/../docker-compose.yml") ? ".." : env.PROJECT_DIR
+                    def composeFile = fileExists("${env.PROJECT_DIR}/docker-compose.back.yml") ? "${env.PROJECT_DIR}/docker-compose.back.yml" : "${env.PROJECT_DIR}/../docker-compose.back.yml"
+                    def composeDir = env.PROJECT_DIR
                     
                     echo "🧹 Limpiando contenedores de prueba..."
                     dir(composeDir) {
@@ -724,11 +724,22 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     
-                        def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
-                        def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
+                        def composeFile = fileExists('docker-compose.back.yml') ? 'docker-compose.back.yml' : '../docker-compose.back.yml'
+                        def composeDir = '.'
 
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             echo "🔁 Asegurando backend corriendo en http://localhost:8080..."
+                            
+                            // Limpiar contenedores existentes primero
+                            sh """
+                                # Parar servicios con docker-compose
+                                ${dockerComposeCmd} -f ${composeFile} down -v 2>/dev/null || true
+                                
+                                # Forzar stop/rm de contenedores relacionados
+                                docker stop mplink-backend mplink-marketplace-db mplink-marketplace-test-db 2>/dev/null || true
+                                docker rm mplink-backend mplink-marketplace-db mplink-marketplace-test-db 2>/dev/null || true
+                            """
+                            
                             dir(composeDir) {
                                 sh """
                                     ${dockerComposeCmd} -f ${composeFile} up -d mplink-postgres mplink-postgres-test mplink-backend
