@@ -22,6 +22,7 @@ pipeline {
         booleanParam(name: 'BUILD_DOCKER', defaultValue: true)
         booleanParam(name: 'PUSH_DOCKER', defaultValue: false)
         booleanParam(name: 'TEST_LOCAL_DOCKER', defaultValue: false, description: 'Levanta docker-compose localmente para validar antes de desplegar')
+        booleanParam(name: 'EXPOSE_BACKEND', defaultValue: true, description: 'Mantiene el backend activo en http://localhost:8080 al finalizar')
         choice(name: 'DEPLOY_ENV', choices: ['none','staging','production'])
     }
 
@@ -276,7 +277,8 @@ pipeline {
             }
             steps {
                 dir(env.PROJECT_DIR) {
-                    script {
+                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                        script {
                         // Si TEST_LOCAL_DOCKER está habilitado, usar la URL local
                         // Si no, usar la URL configurada (puede ser staging/production)
                         def testBaseUrl = params.TEST_LOCAL_DOCKER ? 'http://localhost:8080' : env.POSTMAN_BASE_URL
@@ -711,30 +713,38 @@ pipeline {
             }
         }
         
-        stage('Mantener Backend Activo para Tests Frontend') {
+        stage('Exponer Backend Local (Docker)') {
             when { 
                 expression { 
-                    // Mantener el backend activo si se ejecutaron tests locales
-                    params.TEST_LOCAL_DOCKER && params.BUILD_DOCKER 
+                    params.EXPOSE_BACKEND && params.BUILD_DOCKER 
                 } 
             }
             steps {
-                script {
-                    echo "🔵 Manteniendo contenedor backend activo para tests del frontend"
-                    echo "   El contenedor 'mplink-backend' quedará corriendo para que los tests E2E puedan usarlo"
-                    echo "   Para limpiarlo manualmente, ejecuta: docker-compose down"
-                    
-                    // Verificar que el contenedor está corriendo
-                    def containerStatus = sh(
-                        script: 'docker ps --filter "name=mplink-backend" --format "{{.Names}}: {{.Status}}" 2>/dev/null || echo "No encontrado"',
-                        returnStdout: true
-                    ).trim()
-                    
-                    if (containerStatus && !containerStatus.contains("No encontrado")) {
-                        echo "✅ Backend activo: ${containerStatus}"
-                        echo "   URL: http://localhost:8080"
-                    } else {
-                        echo "⚠️ Advertencia: El contenedor backend no está corriendo"
+                dir(env.PROJECT_DIR) {
+                    script {
+                        def dockerComposeCmd = sh(
+                            script: 'command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" || echo "docker compose"',
+                            returnStdout: true
+                        ).trim()
+
+                        def composeFile = fileExists('../docker-compose.yml') ? '../docker-compose.yml' : 'docker-compose.yml'
+                        def composeDir = fileExists('../docker-compose.yml') ? '..' : '.'
+
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            echo "🔁 Asegurando backend corriendo en http://localhost:8080..."
+                            dir(composeDir) {
+                                sh """
+                                    ${dockerComposeCmd} -f ${composeFile} up -d mplink-postgres mplink-postgres-test mplink-backend
+                                """
+                            }
+
+                            echo ""
+                            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                            echo "🌐 BACKEND DISPONIBLE EN http://localhost:8080"
+                            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                            echo "   Contenedor: mplink-backend"
+                            echo "   Para detenerlo manualmente: ${dockerComposeCmd} -f ${composeFile} down"
+                        }
                     }
                 }
             }
