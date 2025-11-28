@@ -49,11 +49,12 @@ public class DevSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationManager authManager) throws Exception {
 
         JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(authManager);
-        jwtAuthenticationFilter.setFilterProcessesUrl("/api/auth/login");
+        jwtAuthenticationFilter.setFilterProcessesUrl("/login");
 
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll() // Health check PRIMERO
+                        .requestMatchers(HttpMethod.POST, "/login").permitAll() // Login público
                         .requestMatchers(HttpMethod.POST, "/api/users/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/password-reset/**").permitAll()
                         // Permitir endpoints públicos adicionales si es necesario

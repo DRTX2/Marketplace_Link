@@ -46,7 +46,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: drtx2/mplink-backend:latest
+    image: mplink-backend-local:latest
     container_name: mplink-backend
     restart: unless-stopped
     environment:
