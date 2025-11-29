@@ -23,7 +23,6 @@ public class PasswordResetToken {
 
     @Column(nullable = false,length = 255)
     private String token;
-
     @Column(nullable = false)
     private Boolean used;
 

@@ -14,7 +14,5 @@ public record UserResponse(
         String cedula,
         String gender,
         String accountStatus,
-        Set<RoleResponse> roles,
-        Double latitude,
-        Double longitude
+        Set<RoleResponse> roles
 ) {}

@@ -6,14 +6,12 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerMapping;
 
 import java.util.Map;
 
-@Slf4j
 @Component
 public class UniqueValueValidator implements ConstraintValidator<UniqueValue, Object> {
 
@@ -47,7 +45,6 @@ public class UniqueValueValidator implements ConstraintValidator<UniqueValue, Ob
 
     @Override
     public boolean isValid(Object value, ConstraintValidatorContext context) {
-        log.debug("Validating unique value for field '{}' in entity '{}'", field, entityClass.getName());
         if (value == null) return true;
         if (value instanceof String s && s.isBlank()) return true;
 
@@ -76,10 +73,10 @@ public class UniqueValueValidator implements ConstraintValidator<UniqueValue, Ob
         }
 
         Long count = q.getSingleResult();
-        log.debug("Unique value validation result: {}", count);
         return count == 0;
     }
 
+    @SuppressWarnings("unchecked")
     private Long extractIdFromPath() {
         Object attr = request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
         if (!(attr instanceof Map<?, ?> map)) return null;
