@@ -4,7 +4,7 @@ services:
     container_name: mplink-marketplace-db
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-5436}:5432"
+      - "5438:5432"
     environment:
       POSTGRES_DB: marketplace_db
       POSTGRES_USER: postgres
@@ -25,7 +25,7 @@ services:
     container_name: mplink-marketplace-test-db
     restart: unless-stopped
     ports:
-      - "${DB_PORT_TEST:-5437}:5432"
+      - "5439:5432"
     environment:
       POSTGRES_DB: ${DB_NAME_TEST:-marketplace_test_db}
       POSTGRES_USER: ${DB_USER_TEST:-postgres}
@@ -46,7 +46,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: drtx2/mplink-backend:latest
+    image: mplink-backend-local:latest
     container_name: mplink-backend
     restart: unless-stopped
     environment:
@@ -66,14 +66,14 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5174}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5174,http://localhost:80,http://localhost}
       MODERATOR_DEFAULT_PASSWORD: ${MODERATOR_DEFAULT_PASSWORD:-SecretPasswordM123}
       SUSPENDED_TIME_DAYS: ${SUSPENDED_TIME_DAYS:-30}
       AZURE_STORAGE_ENABLED: ${AZURE_STORAGE_ENABLED:-false}
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
       AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME:-imagenes}
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "8080:8080"
     volumes:
       - mplink_uploads:/app/uploads
     networks:

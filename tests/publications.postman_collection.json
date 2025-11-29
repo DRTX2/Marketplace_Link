@@ -1,63 +1,10 @@
 {
 	"info": {
-		"_postman_id": "3ac75efc-4727-43c8-b767-d574f919f954",
+		"_postman_id": "d870e4f4-f839-4251-b5e1-33f345982933",
 		"name": "MarketPlace System",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "43731826",
-		"_collection_link": "https://joelbonilla-6024999.postman.co/workspace/Joel-Bonilla's-Workspace~eb067e51-830f-492d-8648-46208797b26f/collection/43731826-3ac75efc-4727-43c8-b767-d574f919f954?action=share&source=collection_link&creator=43731826"
+		"_exporter_id": "40124121"
 	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{jwt_token}}",
-				"type": "string"
-			}
-		]
-	},
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					"// Auto-login si no hay token o si el token está expirado",
-					"const token = pm.environment.get('jwt_token');",
-					"const email = pm.environment.get('USER_EMAIL') || 'test@example.com';",
-					"const password = pm.environment.get('USER_PASSWORD') || 'password123';",
-					"",
-					"// Si no hay token, hacer login automático",
-					"if (!token) {",
-					"    const loginRequest = {",
-					"        url: pm.environment.get('BASE_URL') + '/api/auth/login',",
-					"        method: 'POST',",
-					"        header: {",
-					"            'Content-Type': 'application/json'",
-					"        },",
-					"        body: {",
-					"            mode: 'raw',",
-					"            raw: JSON.stringify({",
-					"                email: email,",
-					"                password: password",
-					"            })",
-					"        }",
-					"    };",
-					"    ",
-					"    pm.sendRequest(loginRequest, function (err, response) {",
-					"        if (!err && response.code === 200) {",
-					"            const jsonData = response.json();",
-					"            if (jsonData.token) {",
-					"                pm.environment.set('jwt_token', jsonData.token);",
-					"                console.log('Token JWT obtenido automáticamente');",
-					"            }",
-					"        }",
-					"    });",
-					"}"
-				]
-			}
-		}
-	],
 	"item": [
 		{
 			"name": "Auth",
@@ -88,7 +35,9 @@
 									"    pm.expect(jsonData).to.have.property('token');",
 									"});"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -113,13 +62,11 @@
 							}
 						},
 						"url": {
-							"raw": "{{BASE_URL}}/api/auth/login",
+							"raw": "{{BASE_URL}}/login",
 							"host": [
 								"{{BASE_URL}}"
 							],
 							"path": [
-								"api",
-								"auth",
 								"login"
 							]
 						},
@@ -212,7 +159,7 @@
 						},
 						{
 							"key": "description",
-							"value": "A la venta con drogas  promocion de año nuevo",
+							"value": "A la venta con ppromocion de año nuevo",
 							"type": "text"
 						},
 						{
@@ -237,14 +184,13 @@
 						},
 						{
 							"key": "vendorId",
-							"value": "3",
+							"value": "5",
 							"type": "text"
 						},
 						{
 							"key": "images",
 							"type": "file",
-							"src": "",
-							"disabled": true
+							"src": "/C:/Users/Josue/Pictures/wallpapers/566206.jpg"
 						}
 					]
 				},
@@ -301,14 +247,13 @@
 						},
 						{
 							"key": "vendorId",
-							"value": "4",
+							"value": "5",
 							"type": "text"
 						},
 						{
 							"key": "images",
 							"type": "file",
-							"src": "",
-							"disabled": true
+							"src": "/C:/Users/Josue/Pictures/wallpapers/566206.jpg"
 						},
 						{
 							"key": "workingHours",
@@ -323,14 +268,14 @@
 					]
 				},
 				"url": {
-					"raw": "{{BASE_URL}}/api/publications/12",
+					"raw": "{{BASE_URL}}/api/publications/5",
 					"host": [
 						"{{BASE_URL}}"
 					],
 					"path": [
 						"api",
 						"publications",
-						"12"
+						"5"
 					]
 				}
 			},
@@ -376,14 +321,13 @@
 						},
 						{
 							"key": "vendorId",
-							"value": "4",
+							"value": "5",
 							"type": "text"
 						},
 						{
 							"key": "images",
 							"type": "file",
-							"src": "",
-							"disabled": true
+							"src": "/C:/Users/Josue/Pictures/wallpapers/1308512.jpeg"
 						},
 						{
 							"key": "availability",
@@ -398,14 +342,14 @@
 					]
 				},
 				"url": {
-					"raw": "{{BASE_URL}}/api/publications/2",
+					"raw": "{{BASE_URL}}/api/publications/5",
 					"host": [
 						"{{BASE_URL}}"
 					],
 					"path": [
 						"api",
 						"publications",
-						"2"
+						"5"
 					]
 				}
 			},
@@ -429,6 +373,58 @@
 				}
 			},
 			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-login si no hay token o si el token está expirado",
+					"const token = pm.environment.get('jwt_token');",
+					"const email = pm.environment.get('USER_EMAIL') || 'test@example.com';",
+					"const password = pm.environment.get('USER_PASSWORD') || 'password123';",
+					"",
+					"// Si no hay token, hacer login automático",
+					"if (!token) {",
+					"    const loginRequest = {",
+					"        url: pm.environment.get('BASE_URL') + '/api/auth/login',",
+					"        method: 'POST',",
+					"        header: {",
+					"            'Content-Type': 'application/json'",
+					"        },",
+					"        body: {",
+					"            mode: 'raw',",
+					"            raw: JSON.stringify({",
+					"                email: email,",
+					"                password: password",
+					"            })",
+					"        }",
+					"    };",
+					"    ",
+					"    pm.sendRequest(loginRequest, function (err, response) {",
+					"        if (!err && response.code === 200) {",
+					"            const jsonData = response.json();",
+					"            if (jsonData.token) {",
+					"                pm.environment.set('jwt_token', jsonData.token);",
+					"                console.log('Token JWT obtenido automáticamente');",
+					"            }",
+					"        }",
+					"    });",
+					"}"
+				]
+			}
 		}
 	]
 }
