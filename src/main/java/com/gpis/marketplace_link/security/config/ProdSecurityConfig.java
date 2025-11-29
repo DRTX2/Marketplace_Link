@@ -41,11 +41,11 @@ public class ProdSecurityConfig {
     private final CorsConfigurationSource corsConfigurationSource;
 
     private static final String[] WHITELIST = {
+            "/actuator/health", "/actuator/health/**", // Docker health check endpoint (PRIMERO)
             "/login",
             "/api/users/**",
             "/api/auth/password/**",
             "/api/auth/resend-verification", "/api/auth/verify-email/resend",
-            "/actuator/health", // Docker health check endpoint
             "/error",
     };
 

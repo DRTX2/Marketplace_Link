@@ -1,12 +1,17 @@
 server:
   port: ${SERVER_PORT:8080}
+  address: 0.0.0.0  # Escuchar en todas las interfaces (necesario para Docker networking)
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5436}/${DB_NAME:marketplace_db}
+    url: jdbc:postgresql://${DB_HOST:mplink-postgres}:${DB_PORT:5432}/${DB_NAME:marketplace_db}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 60000  # 60 segundos para establecer conexión
+      initialization-fail-timeout: 60000  # 60 segundos antes de fallar
+      maximum-pool-size: 10
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:25}
@@ -17,9 +22,9 @@ spring:
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_AUTH:false}  # Deshabilitar auth si no hay credenciales
           starttls:
-            enable: true
+            enable: ${MAIL_STARTTLS:false}  # Deshabilitar TLS si no está configurado
   jpa:
     show-sql: true
     hibernate:
@@ -36,7 +41,24 @@ spring:
 
 logging:
   level:
+    com.gpis.marketplace_link.security: INFO
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    root: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false  # Deshabilitar health check de mail en dev para evitar errores
+
 
