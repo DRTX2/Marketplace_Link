@@ -1,7 +1,7 @@
 #Nota: No se usa H2 porque no soporta PostGIS y se va romper con este este campo -> Point location
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST_TEST:mplink_postgres_test}:${DB_PORT_TEST:5432}/${DB_NAME_TEST:marketplace_test_db}
+    url: jdbc:postgresql://${DB_HOST_TEST:localhost}:${DB_PORT_TEST:5437}/${DB_NAME_TEST:marketplace_test_db}
     username: ${DB_USER_TEST:postgres}
     password: ${DB_PASSWORD_TEST:admin}
     driver-class-name: org.postgresql.Driver
