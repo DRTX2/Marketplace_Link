@@ -193,47 +193,34 @@ public class PublicationService {
         }
         publication.setType(publication.getWorkingHours() != null ? PublicationType.SERVICE : PublicationType.PRODUCT);
 
-        // Crear mapa de imágenes existentes usando el path como clave
-        Map<String, PublicationImage> existingMap = publication.getImages().stream()
-                .collect(Collectors.toMap(PublicationImage::getPath, img -> img));
+        // 1. Obtener URLs de imágenes que se deben MANTENER (vienen del frontend)
+        List<String> imagesToKeep = request.existingImageUrls() != null ? request.existingImageUrls()
+                : new ArrayList<>();
 
-        // Identificar imágenes existentes que NO están en la lista de archivos enviados
-        // Estas se deben eliminar porque el usuario las removió
+        // 2. Identificar imágenes que están en la BD pero NO en la lista de mantener ->
+        // ELIMINAR
         List<PublicationImage> imagesToRemove = publication.getImages().stream()
-                .filter(img -> request.images().stream()
-                        .noneMatch(f -> f.getOriginalFilename() != null && 
-                                       f.getOriginalFilename().equals(img.getPath())))
+                .filter(img -> !imagesToKeep.contains(img.getPath())) // Si no está en la lista de keep, se borra
                 .toList();
 
-        // Eliminar imágenes que ya no se necesitan
+        // 3. Eliminar imágenes (BD y Storage)
         for (PublicationImage img : imagesToRemove) {
             publication.getImages().remove(img);
             fileStorageService.deleteFile(img.getPath());
         }
 
-        // Procesar archivos recibidos
-        for (MultipartFile file : request.images()) {
-            String originalFileName = file.getOriginalFilename();
-            
-            if (originalFileName == null) {
-                continue; // Saltar archivos sin nombre
-            }
+        // 4. Procesar NUEVAS imágenes (archivos subidos)
+        if (request.images() != null) {
+            for (MultipartFile file : request.images()) {
+                if (file.isEmpty())
+                    continue;
 
-            // Si el nombre del archivo coincide con un path existente, 
-            // significa que es una imagen que se mantiene (archivo dummy)
-            // NO guardarlo de nuevo, solo mantener la imagen existente
-            if (existingMap.containsKey(originalFileName)) {
-                // La imagen ya existe, no hacer nada (se mantiene en la BD)
-                continue;
+                String path = fileStorageService.storeFile(file);
+                PublicationImage img = new PublicationImage();
+                img.setPath(path);
+                img.setPublication(publication);
+                publication.getImages().add(img);
             }
-
-            // Si el nombre NO coincide, es una imagen nueva
-            // Guardar el archivo y agregar a la publicación
-            String path = fileStorageService.storeFile(file);
-            PublicationImage img = new PublicationImage();
-            img.setPath(path);
-            img.setPublication(publication);
-            publication.getImages().add(img);
         }
 
         validateDangerousContent(publication);

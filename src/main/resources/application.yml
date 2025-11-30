@@ -40,9 +40,14 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
 server:
   port: ${SERVER_PORT}
-  address: 0.0.0.0  # Escuchar en todas las interfaces (necesario para Docker networking)
+  address: 0.0.0.0 # Escuchar en todas las interfaces (necesario para Docker networking)
 
   error:
     include-message: always

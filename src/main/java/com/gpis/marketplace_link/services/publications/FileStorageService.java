@@ -19,10 +19,10 @@ import java.util.UUID;
 public class FileStorageService {
 
     private final Path fileStorageLocation;
-    
+
     @Value("${azure.storage.enabled:false}")
     private boolean azureStorageEnabled;
-    
+
     @Autowired(required = false)
     private AzureBlobStorageService azureBlobStorageService;
 
@@ -37,11 +37,13 @@ public class FileStorageService {
     }
 
     /**
-     * Almacena un archivo usando Azure Blob Storage (si está habilitado) o sistema de archivos local
+     * Almacena un archivo usando Azure Blob Storage (si está habilitado) o sistema
+     * de archivos local
      * Mejoras del fix/upload-images para manejo local más robusto
      * 
      * @param file archivo a almacenar
-     * @return URL completa si usa Azure, o nombre del archivo si usa almacenamiento local
+     * @return URL completa si usa Azure, o nombre del archivo si usa almacenamiento
+     *         local
      */
     public String storeFile(MultipartFile file) {
         // Si Azure Storage está habilitado, usar Azure Blob Storage
@@ -56,7 +58,7 @@ public class FileStorageService {
                 return storeFileLocally(file);
             }
         }
-        
+
         // Usar almacenamiento local
         return storeFileLocally(file);
     }
@@ -101,8 +103,9 @@ public class FileStorageService {
             return false;
         }
 
-        // Si es una URL de Azure Blob Storage
-        if (azureStorageEnabled && fileReference.startsWith("https://") && azureBlobStorageService != null) {
+        // Si es una URL de Azure Blob Storage (https o http para desarrollo local)
+        if (azureStorageEnabled && (fileReference.startsWith("https://") || fileReference.startsWith("http://"))
+                && azureBlobStorageService != null) {
             return azureBlobStorageService.fileExists(fileReference);
         }
 
@@ -121,8 +124,9 @@ public class FileStorageService {
         }
 
         try {
-            // Si es una URL de Azure Blob Storage
-            if (azureStorageEnabled && fileReference.startsWith("https://") && azureBlobStorageService != null) {
+            // Si es una URL de Azure Blob Storage (https o http para desarrollo local)
+            if (azureStorageEnabled && (fileReference.startsWith("https://") || fileReference.startsWith("http://"))
+                    && azureBlobStorageService != null) {
                 boolean deleted = azureBlobStorageService.deleteFile(fileReference);
                 if (deleted) {
                     log.info("🗑️ Archivo eliminado de Azure Blob Storage: {}", fileReference);
