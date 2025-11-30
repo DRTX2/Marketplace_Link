@@ -5,13 +5,14 @@ import com.gpis.marketplace_link.dto.user.ForgotPasswordRequest;
 import com.gpis.marketplace_link.dto.user.ResetPasswordRequest;
 import com.gpis.marketplace_link.entities.PasswordResetToken;
 import com.gpis.marketplace_link.entities.User;
-import com.gpis.marketplace_link.repository.PasswordResetTokenRepository;
-import com.gpis.marketplace_link.repository.UserRepository;
-import com.gpis.marketplace_link.valueObjects.EmailType;
+import com.gpis.marketplace_link.repositories.PasswordResetTokenRepository;
+import com.gpis.marketplace_link.repositories.UserRepository;
+import com.gpis.marketplace_link.enums.EmailType;
 import com.gpis.marketplace_link.valueObjects.PasswordResetUrl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -27,9 +28,9 @@ public class PasswordResetService {
     private static final int EXPIRATION_MINUTES = 10;
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final UserService userService;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${frontend.url}")
     private String frontendUrl;
@@ -45,6 +46,22 @@ public class PasswordResetService {
         PasswordResetToken token = new PasswordResetToken();
         token.setToken(createTokenValue());
         token.setExpiration(LocalDateTime.now().plusMinutes(EXPIRATION_MINUTES));
+        token.setUser(user);
+        return passwordResetTokenRepository.save(token);
+    }
+
+    /**
+     * Creates and persists a password reset token with custom expiration minutes.
+     * Returns the created token for further use (e.g., building reset URL).
+     */
+    @Transactional
+    public PasswordResetToken createTokenWithCustomExpiration(Long userId, int minutes) {
+        User user = userRepository.findById(userId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken(createTokenValue());
+        token.setExpiration(LocalDateTime.now().plusMinutes(minutes));
         token.setUser(user);
         return passwordResetTokenRepository.save(token);
     }
@@ -83,6 +100,13 @@ public class PasswordResetService {
         token.setUsed(true);
         passwordResetTokenRepository.save(token);
 
-        userService.resetPassword(token.getUser().getId(), req.newPassword());
+        // Lógica movida desde UserService.resetPassword() para evitar ciclo circular
+        User user = token.getUser();
+        
+        if (passwordEncoder.matches(req.newPassword(), user.getPassword()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nueva contraseña no puede ser igual a la actual");
+        
+        user.setPassword(passwordEncoder.encode(req.newPassword()));
+        userRepository.save(user);
     }
 }

@@ -1,19 +1,35 @@
 package com.gpis.marketplace_link.services;
 
 import com.gpis.marketplace_link.dto.user.ChangePasswordRequest;
+import com.gpis.marketplace_link.entities.PasswordResetToken;
 import com.gpis.marketplace_link.entities.Role;
 import com.gpis.marketplace_link.entities.User;
-import com.gpis.marketplace_link.repository.UserRepository;
-import com.gpis.marketplace_link.valueObjects.AccountStatus;
+import com.gpis.marketplace_link.enums.AccountStatus;
+import com.gpis.marketplace_link.enums.EmailType;
+import com.gpis.marketplace_link.exceptions.business.users.AccountBlockedException;
+import com.gpis.marketplace_link.exceptions.business.users.AccountInactiveException;
+import com.gpis.marketplace_link.exceptions.business.users.AccountPendingVerificationException;
+import com.gpis.marketplace_link.valueObjects.PasswordResetUrl;
+import com.gpis.marketplace_link.repositories.UserRepository;
+import com.gpis.marketplace_link.services.PasswordResetService;
+import com.gpis.marketplace_link.services.user.EmailVerificationService;
+import com.gpis.marketplace_link.specifications.UserSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDateTime;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -24,6 +40,9 @@ public class UserService {
     private final UserRepository userRepo;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
+    private final NotificationService notificationService;
 
     public boolean existsUserByEmail(String email) { return userRepo.existsByEmail(email); }
 
@@ -32,6 +51,63 @@ public class UserService {
     public User findByEmail(String email) {
         return userRepo.findByEmail(email).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado con email " + email));
+    }
+
+    @Transactional(readOnly = true)
+    public User getProfileEnforcingStatus(Long userId) {
+        var user = userRepo.findById(userId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        var st = user.getAccountStatus();
+        if (st == AccountStatus.ACTIVE) return user;
+        if (st == AccountStatus.BLOCKED) throw new AccountBlockedException();
+        if (st == AccountStatus.PENDING_VERIFICATION) throw new AccountPendingVerificationException();
+        throw new AccountInactiveException();
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> findAllWithFilters(Boolean includeDeleted, List<String> roleNames, String searchTerm) {
+        if (Boolean.TRUE.equals(includeDeleted)) {
+            String q = (searchTerm == null || searchTerm.isBlank()) ? null : "%" + searchTerm.trim() + "%";
+            boolean rolesIsNull = (roleNames == null || roleNames.isEmpty());
+            String[] roles = rolesIsNull ? null : roleNames.toArray(String[]::new);
+            return userRepo.findAllIncludingDeletedNative(q, roles, rolesIsNull);
+        }
+        Specification<User> spec = UserSpecifications.filterUsers(false, roleNames, searchTerm);
+        return userRepo.findAll(spec);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<User> findAllWithFiltersPaginated(Boolean includeDeleted, List<String> roleNames, String searchTerm, Pageable pageable) {
+        if (Boolean.TRUE.equals(includeDeleted)) {
+            String q = (searchTerm == null || searchTerm.isBlank()) ? null : "%" + searchTerm.trim() + "%";
+            boolean rolesIsNull = (roleNames == null || roleNames.isEmpty());
+            String[] roles = rolesIsNull ? null : roleNames.toArray(String[]::new);
+            return userRepo.findAllIncludingDeletedNative(q, roles, rolesIsNull, pageable);
+        }
+        Specification<User> spec = UserSpecifications.filterUsers(false, roleNames, searchTerm);
+        return userRepo.findAll(spec, pageable);
+    }
+
+    @Transactional
+    public User createModerator(User user) {
+        Set<Role> moderatorRole = roleService.resolveWithDefault(null, "ROLE_MODERATOR");
+        user.setRoles(moderatorRole);
+        user.setPassword(passwordEncoder.encode("ChangeMe123!"));
+        user.setAccountStatus(AccountStatus.ACTIVE);
+        user.setEmailVerifiedAt(LocalDateTime.now());
+
+        User savedUser = userRepo.save(user);
+
+        PasswordResetToken resetToken = passwordResetService.createTokenWithCustomExpiration(savedUser.getId(), 1440);
+        PasswordResetUrl resetUrl = new PasswordResetUrl("${frontend.url}/reset-password", resetToken.getToken());
+        Map<String, String> variables = Map.of(
+                "user", savedUser.getFullName(),
+                "username", savedUser.getUsername(),
+                "email", savedUser.getEmail(),
+                "reset_url", resetUrl.toString()
+        );
+        notificationService.sendAsync(savedUser.getEmail(), EmailType.MODERATOR_ACCOUNT_CREATED, variables);
+        return savedUser;
     }
 
     @Transactional
@@ -82,7 +158,7 @@ public class UserService {
     public void desactivateUser(Long userId) {
         userRepo.findById(userId).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
-        if (userRepo.desactivateById(userId) == 0)
+        if (userRepo.deactivateById(userId) == 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo realizar el borrado lógico del usuario");
     }
 
