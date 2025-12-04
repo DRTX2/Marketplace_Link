@@ -35,7 +35,7 @@ public class Publication {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
     @Column(nullable = false)
