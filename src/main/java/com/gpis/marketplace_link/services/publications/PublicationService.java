@@ -200,7 +200,9 @@ public class PublicationService {
         // 2. Identificar imágenes que están en la BD pero NO en la lista de mantener ->
         // ELIMINAR
         List<PublicationImage> imagesToRemove = publication.getImages().stream()
-                .filter(img -> !imagesToKeep.contains(img.getPath())) // Si no está en la lista de keep, se borra
+                .filter(img -> imagesToKeep.stream().noneMatch(url -> url.endsWith(img.getPath()))) // Si no está en la
+                                                                                                    // lista de keep, se
+                                                                                                    // borra
                 .toList();
 
         // 3. Eliminar imágenes (BD y Storage)
