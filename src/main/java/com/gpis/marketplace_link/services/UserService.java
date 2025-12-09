@@ -123,10 +123,22 @@ public class UserService {
 
     @Transactional
     public User update(Long id, User draft) {
-        if (draft.getId() == null) draft.setId(id);
-        userRepo.findById(id).orElseThrow(() ->
+        User existing = userRepo.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado: " + id));
-        return userRepo.save(draft);
+        
+        // Solo actualizar campos que NO sean null en el draft
+        if (draft.getUsername() != null) existing.setUsername(draft.getUsername());
+        if (draft.getEmail() != null) existing.setEmail(draft.getEmail());
+        if (draft.getPhone() != null) existing.setPhone(draft.getPhone());
+        if (draft.getFirstName() != null) existing.setFirstName(draft.getFirstName());
+        if (draft.getLastName() != null) existing.setLastName(draft.getLastName());
+        if (draft.getCedula() != null) existing.setCedula(draft.getCedula());
+        if (draft.getGender() != null) existing.setGender(draft.getGender());
+        if (draft.getAccountStatus() != null) existing.setAccountStatus(draft.getAccountStatus());
+        if (draft.getLocation() != null) existing.setLocation(draft.getLocation());
+        if (draft.getRoles() != null && !draft.getRoles().isEmpty()) existing.setRoles(draft.getRoles());
+        
+        return userRepo.save(existing);
     }
 
     @Transactional
