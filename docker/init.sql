@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS publications (
     type VARCHAR(20) NOT NULL, -- PRODUCT or SERVICE
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    price DECIMAL(15,2) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
     availability VARCHAR(20) NOT NULL  DEFAULT 'AVAILABLE', -- AVAILABLE, UNAVAILABLE
     status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE', -- VISIBLE,  UNDER_REVIEW , BLOCKED,
     previous_status VARCHAR(20),
@@ -192,65 +192,7 @@ CREATE TABLE IF NOT EXISTS favorite_publications (
     ON DELETE CASCADE
 );
 
--- ======================
--- Tabla: incidences (flujo de moderación)
--- ======================
-CREATE TABLE IF NOT EXISTS incidences (
-    id  BIGSERIAL PRIMARY KEY ,
-    public_ui UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-    publication_id BIGINT NOT NULL,
-    status VARCHAR(20) CHECK (status IN ('OPEN', 'PENDING_REVIEW','UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    auto_closed BOOLEAN DEFAULT FALSE,
-    moderator_id BIGINT,
-    moderator_comment TEXT,
-    decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
 
-    FOREIGN KEY (publication_id) REFERENCES publications(id),
-    FOREIGN KEY (moderator_id) REFERENCES users(id)
-);
-
--- ======================
--- Tabla: reports (más de 3 reportes oculta el producto)
--- ======================
-CREATE TABLE IF NOT EXISTS reports (
-    id BIGSERIAL PRIMARY KEY ,
-    incidence_id BIGINT NOT NULL,
-    reporter_id BIGINT NOT NULL,
-    reason VARCHAR(100) NOT NULL,
-    comment TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    source VARCHAR(20) CHECK (source IN ('USER', 'SYSTEM')) DEFAULT 'USER',
-    FOREIGN KEY (incidence_id) REFERENCES incidences(id),
-    FOREIGN KEY (reporter_id) REFERENCES users(id)
-);
-
--- ======================
--- Tabla: appeals (solo se puede apelar una vez)
--- ======================
-CREATE TABLE IF NOT EXISTS appeals (
-    id  BIGSERIAL PRIMARY KEY ,
-    incidence_id BIGINT NOT NULL,
-    seller_id BIGINT NOT NULL,
-    reason TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) CHECK (
-        status IN (
-                   'PENDING',          -- apelación creada, esperando asignación de nuevo moderador
-                   'ASSIGNED',         -- nuevo moderador asignado, en revisión
-                   'FAILED_NO_MOD',    -- no hay moderadores disponibles
-                   'REVIEWED'          -- revisión completada (decision final tomada)
-            )
-        ) DEFAULT 'PENDING',
-    new_moderator_id BIGINT,
-    final_decision VARCHAR(20) CHECK (final_decision IN ('ACCEPTED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
-    final_decision_at TIMESTAMP,
-
-    CONSTRAINT unique_incidence UNIQUE (incidence_id),
-    FOREIGN KEY (incidence_id) REFERENCES incidences(id),
-    FOREIGN KEY (seller_id) REFERENCES users(id),
-    FOREIGN KEY (new_moderator_id) REFERENCES users(id)
-);
 
 -- ======================
 -- Inserción de datos de prueba
@@ -308,7 +250,7 @@ INSERT INTO users (
              '0000000000',
              'admin',
              crypt('admin123', gen_salt('bf',12)),
-             'admin@example.com',
+             'pruebasjos06@gmail.com',
              '+593000000000',
              'Admin',
              'Root',
@@ -365,22 +307,12 @@ VALUES
     ON CONFLICT (username) DO NOTHING;
 
 -- ======================
--- Usuario de prueba para tests automatizados (Postman/Newman)
--- ======================
-INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at, location)
-VALUES
-    ('0808080808', 'test_user', crypt('password123', gen_salt('bf',12)), 'test@example.com', '0999000008', 'Test', 'User', 'MALE', 'ACTIVE', NOW(),
-     ST_SetSRID(ST_MakePoint(-78.628837, -1.241657), 4326))
-    ON CONFLICT (username) DO NOTHING;
-
--- ======================
--- Asignación del rol ROLE_MODERATOR a los nuevos moderadores y ROLE_SELLER al usuario de prueba
+-- Asignación del rol ROLE_MODERATOR a los nuevos moderadores
 -- ======================
 INSERT INTO users_roles (user_id, role_id)
 VALUES
     ((SELECT id FROM users WHERE username = 'moderator_two'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
-    ((SELECT id FROM users WHERE username = 'moderator_three'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR')),
-    ((SELECT id FROM users WHERE username = 'test_user'), (SELECT id FROM roles WHERE name = 'ROLE_SELLER'))
+    ((SELECT id FROM users WHERE username = 'moderator_three'), (SELECT id FROM roles WHERE name = 'ROLE_MODERATOR'))
     ON CONFLICT (user_id, role_id) DO NOTHING;
 
 
@@ -434,126 +366,58 @@ VALUES
     ON CONFLICT (user_id, publication_id) DO NOTHING;
 
 
--- =========================================================
--- Datos de prueba para Incidencias, Reportes y Apelaciones
--- =========================================================
+--- Para el flujo de moderación
 
--- ======================
--- Incidencia 1: Publicación bloqueada por sistema (3 reportes automáticos)
--- ======================
-INSERT INTO incidences (publication_id, status, moderator_id, decision, auto_closed, moderator_comment)
-VALUES
-    (1, 'RESOLVED', (SELECT id FROM users WHERE username = 'JosueG'), 'REJECTED', TRUE, 'Producto con contenido inapropiado - bloqueado automáticamente por 3 reportes')
-ON CONFLICT DO NOTHING;
+-- Se genera una automaticmaente cuando se reporta el producto. Es decir, se genera un reporte e incidencia como primer momento.
+CREATE TABLE incidences (
+                            id  BIGSERIAL PRIMARY KEY ,
+                            public_ui UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+                            publication_id BIGINT NOT NULL,
+                            status VARCHAR(20) CHECK (status IN ('OPEN', 'PENDING_REVIEW','UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            auto_closed BOOLEAN DEFAULT FALSE,
+                            moderator_id BIGINT,
+                            moderator_comment TEXT,
+                            decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
 
--- Asegurar que el usuario system_user exista antes de insertar reportes del sistema
-INSERT INTO users (cedula, username, password, email, phone, first_name, last_name, gender, account_status, email_verified_at, location)
-SELECT
-    '9999999999',
-    'system_user',
-    crypt('system123', gen_salt('bf',12)),
-    'system@marketplace.local',
-    '+0000000000',
-    'System',
-    'Bot',
-    'OTHER',
-    'ACTIVE',
-    NOW(),
-    ST_SetSRID(ST_MakePoint(-78.62935, -1.24222), 4326)
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'system_user');
+                            FOREIGN KEY (publication_id) REFERENCES publications(id),
+                            FOREIGN KEY (moderator_id) REFERENCES users(id)
+);
 
--- Reportes del sistema para incidencia 1
-INSERT INTO reports (incidence_id, reporter_id, reason, comment, source)
-VALUES
-    (1, (SELECT id FROM users WHERE username = 'system_user'), 'Contenido inapropiado', 'Detección automática de palabras prohibidas', 'SYSTEM'),
-    (1, (SELECT id FROM users WHERE username = 'system_user'), 'Información engañosa', 'Precio sospechoso detectado por algoritmo', 'SYSTEM'),
-    (1, (SELECT id FROM users WHERE username = 'system_user'), 'Imagen inapropiada', 'Imagen no cumple con políticas', 'SYSTEM')
-ON CONFLICT DO NOTHING;
+-- Mas de 3 reportes, el producto se oculta.
+CREATE TABLE reports (
+                         id BIGSERIAL PRIMARY KEY ,
+                         incidence_id BIGINT NOT NULL,
+                         reporter_id BIGINT NOT NULL,                     -- comprador que reporta o puede ser el propio sistema.
+                         reason VARCHAR(100) NOT NULL,              -- tipo de reporte
+                         comment TEXT,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         source VARCHAR(20) CHECK (source IN ('USER', 'SYSTEM')) DEFAULT 'USER',
+                         FOREIGN KEY (incidence_id) REFERENCES incidences(id),
+                         FOREIGN KEY (reporter_id) REFERENCES users(id)
+);
 
--- ======================
--- Incidencia 2: Reportada por usuarios, bajo revisión
--- ======================
-INSERT INTO incidences (publication_id, status, moderator_id, decision)
-VALUES
-    (2, 'UNDER_REVIEW', (SELECT id FROM users WHERE username = 'JosueG'), 'PENDING')
-ON CONFLICT DO NOTHING;
+-- Solo se puede apelar una vez.
+CREATE TABLE appeals (
+                         id  BIGSERIAL PRIMARY KEY ,
+                         incidence_id BIGINT NOT NULL,                          -- sigue apuntando a la incidencia, SOLO una por incidencia (UNIQUE)
+                         seller_id BIGINT NOT NULL,				 -- el vendedor que hace la apelacion
+                         reason TEXT NOT NULL,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         status VARCHAR(20) CHECK (
+                             status IN (
+                                        'PENDING',          -- apelación creada, esperando asignación de nuevo moderador
+                                        'ASSIGNED',         -- nuevo moderador asignado, en revisión
+                                        'FAILED_NO_MOD',    -- no hay moderadores disponibles
+                                        'REVIEWED'          -- revisión completada (decision final tomada)
+                                 )
+                             ) DEFAULT 'PENDING',
+                         new_moderator_id BIGINT,				 -- para elegir el nuevo moderador se hace cálculos en el back (puede ser nulo si no hay moderadores)
+                         final_decision VARCHAR(20) CHECK (final_decision IN ('ACCEPTED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
+                         final_decision_at TIMESTAMP,
 
--- Reportes de usuarios para incidencia 2
-INSERT INTO reports (incidence_id, reporter_id, reason, comment, source)
-VALUES
-    (2, (SELECT id FROM users WHERE username = 'DavidB'), 'Producto defectuoso', 'El producto no funciona como se describe', 'USER'),
-    (2, (SELECT id FROM users WHERE username = 'DavidM'), 'Precio incorrecto', 'El precio en la tienda física es diferente', 'USER')
-ON CONFLICT DO NOTHING;
-
--- ======================
--- Incidencia 3: Abierta, pendiente de asignación de moderador
--- ======================
-INSERT INTO incidences (publication_id, status)
-VALUES
-    (3, 'OPEN')
-ON CONFLICT DO NOTHING;
-
--- Reporte inicial para incidencia 3
-INSERT INTO reports (incidence_id, reporter_id, reason, comment, source)
-VALUES
-    (3, (SELECT id FROM users WHERE username = 'DavidB'), 'Vendedor no responde', 'Intenté contactar al vendedor sin respuesta', 'USER')
-ON CONFLICT DO NOTHING;
-
--- ======================
--- Incidencia 4: Con apelación pendiente
--- ======================
-INSERT INTO incidences (publication_id, status, moderator_id, decision)
-VALUES
-    (4, 'APPEALED', (SELECT id FROM users WHERE username = 'moderator_two'), 'REJECTED')
-ON CONFLICT DO NOTHING;
-
--- Reportes para incidencia 4
-INSERT INTO reports (incidence_id, reporter_id, reason, comment, source)
-VALUES
-    (4, (SELECT id FROM users WHERE username = 'DavidB'), 'Producto falsificado', 'La bicicleta parece ser una copia', 'USER'),
-    (4, (SELECT id FROM users WHERE username = 'DavidM'), 'Descripción engañosa', 'Las especificaciones no coinciden', 'USER')
-ON CONFLICT DO NOTHING;
-
--- Apelación del vendedor para incidencia 4
-INSERT INTO appeals (incidence_id, seller_id, reason, status, new_moderator_id)
-VALUES
-    (4, 
-     (SELECT id FROM users WHERE username = 'JoelB'), 
-     'Mi producto es auténtico. Tengo facturas y certificados de garantía que demuestran su originalidad. Los compradores malinterpretaron la descripción.',
-     'ASSIGNED',
-     (SELECT id FROM users WHERE username = 'moderator_three'))
-ON CONFLICT DO NOTHING;
-
--- ======================
--- Incidencia 5: Resuelta y aprobada
--- ======================
-INSERT INTO incidences (publication_id, status, moderator_id, decision, moderator_comment)
-VALUES
-    (5, 'RESOLVED', (SELECT id FROM users WHERE username = 'moderator_three'), 'APPROVED', 'Reporte sin fundamento. Producto cumple con políticas.')
-ON CONFLICT DO NOTHING;
-
--- Reporte sin fundamento para incidencia 5
-INSERT INTO reports (incidence_id, reporter_id, reason, comment, source)
-VALUES
-    (5, (SELECT id FROM users WHERE username = 'DavidB'), 'No me gustó', 'El teclado no es de mi agrado', 'USER')
-ON CONFLICT DO NOTHING;
-
--- ======================
--- Incidencia 6: Con apelación rechazada (final)
--- ======================
-INSERT INTO incidences (publication_id, status, moderator_id, decision, moderator_comment)
-VALUES
-    (1, 'RESOLVED', (SELECT id FROM users WHERE username = 'JosueG'), 'REJECTED', 'Después de revisar la apelación, se mantiene la decisión de bloqueo.')
-ON CONFLICT DO NOTHING;
-
--- Apelación rechazada para incidencia 6
-INSERT INTO appeals (incidence_id, seller_id, reason, status, new_moderator_id, final_decision, final_decision_at)
-VALUES
-    (1,
-     (SELECT id FROM users WHERE username = 'JoelB'),
-     'Solicito revisión de mi caso. El bloqueo fue injusto ya que cumplí con todas las políticas.',
-     'REVIEWED',
-     (SELECT id FROM users WHERE username = 'moderator_three'),
-     'REJECTED',
-     NOW() - INTERVAL '2 days')
-ON CONFLICT DO NOTHING;
+                         CONSTRAINT unique_incidence UNIQUE (incidence_id),
+                         FOREIGN KEY (incidence_id) REFERENCES incidences(id),
+                         FOREIGN KEY (seller_id) REFERENCES users(id),
+                         FOREIGN KEY (new_moderator_id) REFERENCES users(id)
+);
