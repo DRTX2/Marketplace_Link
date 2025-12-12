@@ -104,14 +104,12 @@ pipeline {
                                 docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} mplink-backend:latest
                             """
                             
-                            // Levantar servicios con credenciales de correo desde Jenkins
-                            withCredentials([usernamePassword(credentialsId: 'mail-smtp-creds', usernameVariable: 'MAIL_USERNAME', passwordVariable: 'MAIL_PASSWORD')]) {
-                                sh """
-                                    ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-postgres mplink-postgres-test mplink-backend
-                                """
-                            }
+                            // Levantar SOLO PostgreSQL primero
+                            sh """
+                                ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-postgres mplink-postgres-test
+                            """
                             
-                            echo "⏳ Esperando servicios (BD: 60s, Backend: 180s)..."
+                            echo "⏳ Esperando servicios (BD: 60s + init.sql)..."
                             
                             // Esperar BD
                             sh '''
@@ -126,13 +124,21 @@ pipeline {
                             // Esperar a que el init.sql termine de ejecutarse (verificar que tabla appeals exista)
                             sh '''
                                 echo "⏳ Esperando inicialización de esquema (init.sql)..."
-                                timeout=60; elapsed=0
+                                timeout=90; elapsed=0
                                 until docker exec mplink-marketplace-db psql -U postgres -d marketplace_db -tAc "SELECT to_regclass('public.appeals');" 2>/dev/null | grep -q "appeals"; do
                                     [ $elapsed -ge $timeout ] && echo "❌ Timeout init.sql" && exit 1
                                     sleep 3; elapsed=$((elapsed + 3))
+                                    echo "  ... esperando (${elapsed}s/${timeout}s)"
                                 done
                                 echo "✅ Esquema inicializado (tabla appeals existe)"
                             '''
+                            
+                            // Ahora levantar el backend con credenciales de correo
+                            withCredentials([usernamePassword(credentialsId: 'mail-smtp-creds', usernameVariable: 'MAIL_USERNAME', passwordVariable: 'MAIL_PASSWORD')]) {
+                                sh """
+                                    ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-backend
+                                """
+                            }
                             
                             // Esperar Backend
                             sh """
@@ -261,12 +267,11 @@ pipeline {
                                 docker stop mplink-backend mplink-marketplace-db mplink-marketplace-test-db 2>/dev/null || true
                                 docker rm mplink-backend mplink-marketplace-db mplink-marketplace-test-db 2>/dev/null || true
                             """
-
-                            withCredentials([usernamePassword(credentialsId: 'mail-smtp-creds', usernameVariable: 'MAIL_USERNAME', passwordVariable: 'MAIL_PASSWORD')]) {
-                                sh """
-                                    ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-postgres mplink-postgres-test mplink-backend
-                                """
-                            }
+                            
+                            // Levantar SOLO PostgreSQL primero
+                            sh """
+                                ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-postgres mplink-postgres-test
+                            """
                             
                             // Esperar a que PostgreSQL y el init.sql estén listos
                             sh '''
@@ -278,12 +283,19 @@ pipeline {
                                 done
                                 
                                 echo "⏳ Esperando inicialización del esquema..."
-                                timeout=60; elapsed=0
+                                timeout=90; elapsed=0
                                 until docker exec mplink-marketplace-db psql -U postgres -d marketplace_db -tAc "SELECT to_regclass('public.appeals');" 2>/dev/null | grep -q "appeals"; do
                                     [ $elapsed -ge $timeout ] && echo "⚠️ Timeout init.sql (continuando...)" && break
                                     sleep 3; elapsed=$((elapsed + 3))
                                 done
+                                echo "✅ Base de datos lista"
                             '''
+
+                            withCredentials([usernamePassword(credentialsId: 'mail-smtp-creds', usernameVariable: 'MAIL_USERNAME', passwordVariable: 'MAIL_PASSWORD')]) {
+                                sh """
+                                    ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-backend
+                                """
+                            }
 
                             echo ""
                             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
