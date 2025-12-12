@@ -65,13 +65,18 @@ services:
     container_name: mplink-backend
     restart: unless-stopped
     environment:
+      # Spring datasource overrides (sobrescribe application.yml incluso con perfil prod)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://mplink-marketplace-db:5432/marketplace_db?characterEncoding=UTF-8&useUnicode=true
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin
+      # Variables originales
       SPRING_PROFILES_ACTIVE: dev
-      DB_HOST: mplink-postgres
+      DB_HOST: mplink-marketplace-db
       DB_PORT: 5432
       DB_NAME: marketplace_db
       DB_USER: postgres
       DB_PASSWORD: admin
-      DB_HOST_TEST: mplink-postgres-test
+      DB_HOST_TEST: mplink-marketplace-test-db
       DB_PORT_TEST: 5432
       DB_NAME_TEST: marketplace_test_db
       DB_USER_TEST: postgres
