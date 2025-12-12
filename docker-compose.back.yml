@@ -27,15 +27,15 @@ services:
     ports:
       - "5439:5432"
     environment:
-      POSTGRES_DB: ${DB_NAME_TEST:-marketplace_test_db}
-      POSTGRES_USER: ${DB_USER_TEST:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD_TEST:-admin}
+      POSTGRES_DB: marketplace_test_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
     tmpfs:
       - /var/lib/postgresql/data:rw
     volumes:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER_TEST:-postgres} -d ${DB_NAME_TEST:-marketplace_test_db}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d marketplace_test_db"]
       interval: 10s
       timeout: 5s
       retries: 5
