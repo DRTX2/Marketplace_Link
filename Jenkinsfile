@@ -120,7 +120,18 @@ pipeline {
                                     [ $elapsed -ge $timeout ] && echo "❌ Timeout BD" && exit 1
                                     sleep 2; elapsed=$((elapsed + 2))
                                 done
-                                echo "✅ BD lista"
+                                echo "✅ BD lista (conexión establecida)"
+                            '''
+                            
+                            // Esperar a que el init.sql termine de ejecutarse (verificar que tabla appeals exista)
+                            sh '''
+                                echo "⏳ Esperando inicialización de esquema (init.sql)..."
+                                timeout=60; elapsed=0
+                                until docker exec mplink-marketplace-db psql -U postgres -d marketplace_db -tAc "SELECT to_regclass('public.appeals');" 2>/dev/null | grep -q "appeals"; do
+                                    [ $elapsed -ge $timeout ] && echo "❌ Timeout init.sql" && exit 1
+                                    sleep 3; elapsed=$((elapsed + 3))
+                                done
+                                echo "✅ Esquema inicializado (tabla appeals existe)"
                             '''
                             
                             // Esperar Backend
@@ -256,6 +267,23 @@ pipeline {
                                     ${dockerComposeCmd} -f ${env.COMPOSE_FILE} up -d mplink-postgres mplink-postgres-test mplink-backend
                                 """
                             }
+                            
+                            // Esperar a que PostgreSQL y el init.sql estén listos
+                            sh '''
+                                echo "⏳ Esperando PostgreSQL..."
+                                timeout=60; elapsed=0
+                                until docker exec mplink-marketplace-db pg_isready -U postgres -d marketplace_db >/dev/null 2>&1; do
+                                    [ $elapsed -ge $timeout ] && echo "⚠️ Timeout BD (continuando...)" && break
+                                    sleep 2; elapsed=$((elapsed + 2))
+                                done
+                                
+                                echo "⏳ Esperando inicialización del esquema..."
+                                timeout=60; elapsed=0
+                                until docker exec mplink-marketplace-db psql -U postgres -d marketplace_db -tAc "SELECT to_regclass('public.appeals');" 2>/dev/null | grep -q "appeals"; do
+                                    [ $elapsed -ge $timeout ] && echo "⚠️ Timeout init.sql (continuando...)" && break
+                                    sleep 3; elapsed=$((elapsed + 3))
+                                done
+                            '''
 
                             echo ""
                             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
