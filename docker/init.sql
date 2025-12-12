@@ -192,7 +192,70 @@ CREATE TABLE IF NOT EXISTS favorite_publications (
     ON DELETE CASCADE
 );
 
+-- =========================================================
+-- Tablas para flujo de moderación
+-- =========================================================
 
+-- ======================
+-- Tabla: incidences
+-- ======================
+CREATE TABLE IF NOT EXISTS incidences (
+    id  BIGSERIAL PRIMARY KEY ,
+    public_ui UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+    publication_id BIGINT NOT NULL,
+    status VARCHAR(20) CHECK (status IN ('OPEN', 'PENDING_REVIEW','UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    auto_closed BOOLEAN DEFAULT FALSE,
+    moderator_id BIGINT,
+    moderator_comment TEXT,
+    decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
+
+    CONSTRAINT fk_incidences_publication FOREIGN KEY (publication_id) REFERENCES publications(id),
+    CONSTRAINT fk_incidences_moderator FOREIGN KEY (moderator_id) REFERENCES users(id)
+);
+
+-- ======================
+-- Tabla: reports
+-- ======================
+CREATE TABLE IF NOT EXISTS reports (
+    id BIGSERIAL PRIMARY KEY ,
+    incidence_id BIGINT NOT NULL,
+    reporter_id BIGINT NOT NULL,
+    reason VARCHAR(100) NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    source VARCHAR(20) CHECK (source IN ('USER', 'SYSTEM')) DEFAULT 'USER',
+    
+    CONSTRAINT fk_reports_incidence FOREIGN KEY (incidence_id) REFERENCES incidences(id),
+    CONSTRAINT fk_reports_reporter FOREIGN KEY (reporter_id) REFERENCES users(id)
+);
+
+-- ======================
+-- Tabla: appeals
+-- ======================
+CREATE TABLE IF NOT EXISTS appeals (
+    id  BIGSERIAL PRIMARY KEY ,
+    incidence_id BIGINT NOT NULL,
+    seller_id BIGINT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) CHECK (
+        status IN (
+            'PENDING',
+            'ASSIGNED',
+            'FAILED_NO_MOD',
+            'REVIEWED'
+        )
+    ) DEFAULT 'PENDING',
+    new_moderator_id BIGINT,
+    final_decision VARCHAR(20) CHECK (final_decision IN ('ACCEPTED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
+    final_decision_at TIMESTAMP,
+
+    CONSTRAINT unique_incidence UNIQUE (incidence_id),
+    CONSTRAINT fk_appeals_incidence FOREIGN KEY (incidence_id) REFERENCES incidences(id),
+    CONSTRAINT fk_appeals_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+    CONSTRAINT fk_appeals_new_moderator FOREIGN KEY (new_moderator_id) REFERENCES users(id)
+);
 
 -- ======================
 -- Inserción de datos de prueba
@@ -364,60 +427,3 @@ VALUES
     ((SELECT id FROM users WHERE username = 'JoelB'), 3, NOW()),
     ((SELECT id FROM users WHERE username = 'JosueG'), 1, NOW())
     ON CONFLICT (user_id, publication_id) DO NOTHING;
-
-
---- Para el flujo de moderación
-
--- Se genera una automaticmaente cuando se reporta el producto. Es decir, se genera un reporte e incidencia como primer momento.
-CREATE TABLE incidences (
-                            id  BIGSERIAL PRIMARY KEY ,
-                            public_ui UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-                            publication_id BIGINT NOT NULL,
-                            status VARCHAR(20) CHECK (status IN ('OPEN', 'PENDING_REVIEW','UNDER_REVIEW','APPEALED','RESOLVED')) DEFAULT 'OPEN',
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            auto_closed BOOLEAN DEFAULT FALSE,
-                            moderator_id BIGINT,
-                            moderator_comment TEXT,
-                            decision VARCHAR(20) CHECK (decision IN ('APPROVED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
-
-                            FOREIGN KEY (publication_id) REFERENCES publications(id),
-                            FOREIGN KEY (moderator_id) REFERENCES users(id)
-);
-
--- Mas de 3 reportes, el producto se oculta.
-CREATE TABLE reports (
-                         id BIGSERIAL PRIMARY KEY ,
-                         incidence_id BIGINT NOT NULL,
-                         reporter_id BIGINT NOT NULL,                     -- comprador que reporta o puede ser el propio sistema.
-                         reason VARCHAR(100) NOT NULL,              -- tipo de reporte
-                         comment TEXT,
-                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                         source VARCHAR(20) CHECK (source IN ('USER', 'SYSTEM')) DEFAULT 'USER',
-                         FOREIGN KEY (incidence_id) REFERENCES incidences(id),
-                         FOREIGN KEY (reporter_id) REFERENCES users(id)
-);
-
--- Solo se puede apelar una vez.
-CREATE TABLE appeals (
-                         id  BIGSERIAL PRIMARY KEY ,
-                         incidence_id BIGINT NOT NULL,                          -- sigue apuntando a la incidencia, SOLO una por incidencia (UNIQUE)
-                         seller_id BIGINT NOT NULL,				 -- el vendedor que hace la apelacion
-                         reason TEXT NOT NULL,
-                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                         status VARCHAR(20) CHECK (
-                             status IN (
-                                        'PENDING',          -- apelación creada, esperando asignación de nuevo moderador
-                                        'ASSIGNED',         -- nuevo moderador asignado, en revisión
-                                        'FAILED_NO_MOD',    -- no hay moderadores disponibles
-                                        'REVIEWED'          -- revisión completada (decision final tomada)
-                                 )
-                             ) DEFAULT 'PENDING',
-                         new_moderator_id BIGINT,				 -- para elegir el nuevo moderador se hace cálculos en el back (puede ser nulo si no hay moderadores)
-                         final_decision VARCHAR(20) CHECK (final_decision IN ('ACCEPTED','REJECTED', 'PENDING')) DEFAULT 'PENDING',
-                         final_decision_at TIMESTAMP,
-
-                         CONSTRAINT unique_incidence UNIQUE (incidence_id),
-                         FOREIGN KEY (incidence_id) REFERENCES incidences(id),
-                         FOREIGN KEY (seller_id) REFERENCES users(id),
-                         FOREIGN KEY (new_moderator_id) REFERENCES users(id)
-);

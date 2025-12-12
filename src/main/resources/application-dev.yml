@@ -65,7 +65,7 @@ management:
 azure:
   storage:
     enabled: ${AZURE_STORAGE_ENABLED:true}
-    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10000/devstoreaccount1;}
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://mplink-azurite:10000/devstoreaccount1;}
     container-name: ${AZURE_STORAGE_CONTAINER_NAME:marketplace-images}
 
 

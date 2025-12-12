@@ -85,7 +85,7 @@ services:
       MODERATOR_DEFAULT_PASSWORD: ${MODERATOR_DEFAULT_PASSWORD:-SecretPasswordM123}
       SUSPENDED_TIME_DAYS: ${SUSPENDED_TIME_DAYS:-30}
       AZURE_STORAGE_ENABLED: ${AZURE_STORAGE_ENABLED:-true}
-      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;}
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://mplink-azurite:10000/devstoreaccount1;"
       AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME:-marketplace-images}
     ports:
       - "8080:8080"
