@@ -25,7 +25,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     database-platform: org.hibernate.spatial.dialect.postgis.PostgisPG95Dialect
     show-sql: true
     properties:
