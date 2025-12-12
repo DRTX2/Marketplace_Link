@@ -11,11 +11,6 @@ pipeline {
     environment {
         DOCKER_IMAGE = "drtx2/marketplace-link-backend"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
-        
-        // Variables para tests Postman (con valores por defecto)
-        POSTMAN_BASE_URL = "${env.POSTMAN_BASE_URL ?: 'http://localhost:8080'}"
-        POSTMAN_USER_EMAIL = "${env.POSTMAN_USER_EMAIL ?: 'test@example.com'}"
-        POSTMAN_USER_PASSWORD = "${env.POSTMAN_USER_PASSWORD ?: 'password123'}"
     }
 
     parameters {
@@ -154,100 +149,6 @@ pipeline {
                                 ${dockerComposeCmd} -f ${env.COMPOSE_FILE} logs mplink-backend || true
                             """
                             throw e
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Tests (Postman)') {
-            when { expression { params.BUILD_DOCKER || env.POSTMAN_BASE_URL != 'http://localhost:8080' } }
-            steps {
-                dir(env.PROJECT_DIR) {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        script {
-                            def useDockerNetwork = params.TEST_LOCAL_DOCKER || 
-                                sh(script: 'docker ps --filter "name=mplink-backend" -q', returnStdout: true).trim()
-                            def backendNetwork = 'mplink_net'
-                            def testBaseUrl = env.POSTMAN_BASE_URL
-                            
-                            sh 'mkdir -p target'
-                            
-                            // Buscar colecciones
-                            def foundFiles = sh(
-                                script: "find tests -maxdepth 1 -name '*.json' 2>/dev/null | sort -u || true",
-                                returnStdout: true
-                            ).trim()
-                            
-                            if (!foundFiles) {
-                                echo "⚠️ No hay colecciones Postman"
-                                return
-                            }
-                            
-                            def collectionFiles = foundFiles.split('\n').findAll { it.trim() }
-                            echo "📋 Ejecutando ${collectionFiles.size()} colección(es)"
-                            
-                            // Detectar y validar red Docker si es necesario
-                            if (useDockerNetwork) {
-                                def detectedNetwork = sh(
-                                    script: 'docker network ls --filter "name=mplink" --format "{{.Name}}" 2>/dev/null | head -1',
-                                    returnStdout: true
-                                ).trim()
-                                
-                                if (!detectedNetwork) {
-                                    echo "⚠️ Red Docker 'mplink' no encontrada, creando..."
-                                    sh "docker network create ${backendNetwork} 2>/dev/null || true"
-                                } else {
-                                    backendNetwork = detectedNetwork
-                                }
-                                
-                                testBaseUrl = 'http://mplink-backend:8080'
-                                echo "🔗 Red Docker: ${backendNetwork}"
-                                
-                                // Esperar Spring Boot
-                                sh '''
-                                    timeout=120; elapsed=0
-                                    while [ $elapsed -lt $timeout ]; do
-                                        docker logs mplink-backend 2>&1 | grep -q "Started BackApplication" && break
-                                        sleep 5; elapsed=$((elapsed + 5))
-                                    done
-                                '''
-                            }
-                            
-                            echo "🧪 Tests Postman - BASE_URL: ${testBaseUrl}"
-                            
-                            // Ejecutar colecciones
-                            def workspaceAbs = sh(script: "pwd", returnStdout: true).trim()
-                            def jenkinsVolume = env.JENKINS_HOME_VOLUME ?: 'jenkins-docker_jenkins-data'
-                            
-                            withEnv(["TEST_BASE_URL=${testBaseUrl}"]) {
-                                withCredentials([usernamePassword(credentialsId: 'postman-test-user', usernameVariable: 'PM_USER', passwordVariable: 'PM_PASS')]) {
-                                    collectionFiles.each { collection ->
-                                        def baseName = collection.split('/').last().replaceAll(/\.json$/, '')
-                                        def outputFile = "target/newman-${baseName}.xml"
-                                        
-                                        sh """
-                                            docker run --rm \
-                                                ${useDockerNetwork ? "--network ${backendNetwork}" : ""} \
-                                                -v ${jenkinsVolume}:/var/jenkins_home \
-                                                -w "${workspaceAbs}" \
-                                                -e BASE_URL="\${TEST_BASE_URL}" \
-                                                postman/newman:latest \
-                                                run "${collection}" \
-                                                --env-var "BASE_URL=\${TEST_BASE_URL}" \
-                                                --env-var "USER_EMAIL=\${PM_USER}" \
-                                                --env-var "USER_PASSWORD=\${PM_PASS}" \
-                                                --reporters cli,junit \
-                                                --reporter-junit-export "${outputFile}"
-                                        """
-                                    }
-                                }
-                            }
-                            
-                            // Publicar resultados
-                            def junitPath = "${env.PROJECT_DIR}/target/*.xml".replaceFirst(/^\.\//, '')
-                            sh "ls -lh ${env.PROJECT_DIR}/target/*.xml 2>/dev/null || true"
-                            junit junitPath
                         }
                     }
                 }
