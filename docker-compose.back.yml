@@ -101,8 +101,6 @@ services:
     depends_on:
       mplink-postgres:
         condition: service_healthy
-      mplink-postgres-test:
-        condition: service_healthy
       azurite:
         condition: service_started
     healthcheck:
